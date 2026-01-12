@@ -42,12 +42,12 @@ class Config:
     @property
     def dlna_port(self) -> int:
         """Get DLNA device port."""
-        return self.get('dlna.port', 55000)
+        return self.get('dlna_advanced.port', 55000)
 
     @property
     def dlna_protocol(self) -> str:
         """Get DLNA device protocol (http or https)."""
-        return self.get('dlna.protocol', 'http')
+        return self.get('dlna_advanced.protocol', 'http')
 
     @property
     def default_stream_url(self) -> str:
