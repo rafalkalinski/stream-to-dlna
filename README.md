@@ -104,7 +104,7 @@ Start streaming to the DLNA device:
 POST /play
 
 # Or provide a custom stream URL
-POST /play?url=https://stream.radio357.pl/stream.aac
+POST /play?streamUrl=https://stream.radio357.pl/stream.aac
 ```
 
 Examples:
@@ -113,7 +113,7 @@ Examples:
 curl -X POST http://localhost:5000/play
 
 # With custom URL
-curl -X POST "http://localhost:5000/play?url=https://stream.radio357.pl/stream.aac"
+curl -X POST "http://localhost:5000/play?streamUrl=https://stream.radio357.pl/stream.aac"
 ```
 
 Response:
@@ -188,7 +188,7 @@ rest_command:
     method: POST
 
   radio_play_custom:
-    url: "http://192.168.1.50:5000/play?url={{ url }}"
+    url: "http://192.168.1.50:5000/play?streamUrl={{ streamUrl }}"
     method: POST
 
   radio_stop:

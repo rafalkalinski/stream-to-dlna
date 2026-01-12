@@ -71,7 +71,7 @@ def play():
 
     try:
         # Get stream URL from query parameter or use default
-        stream_url = request.args.get('url', config.default_stream_url)
+        stream_url = request.args.get('streamUrl', config.default_stream_url)
 
         if not stream_url:
             return jsonify({
