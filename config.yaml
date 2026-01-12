@@ -10,7 +10,7 @@ dlna:
 # Radio streaming settings
 radio:
   # Default radio stream URL (can be overridden via API)
-  default_url: "http://example.com/stream.aac"
+  default_url: "https://stream.radio357.pl"
 
 # API server settings
 server:

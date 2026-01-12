@@ -43,7 +43,7 @@ dlna:
   port: 55000
 
 radio:
-  default_url: "http://your-radio-stream-url/stream.aac"
+  default_url: "https://stream.radio357.pl"
 ```
 
 3. Start the service:
@@ -80,7 +80,7 @@ dlna:
 
 # Radio streaming settings
 radio:
-  default_url: "http://your-radio-stream-url/stream.aac"
+  default_url: "https://stream.radio357.pl"
 
 # API server settings
 server:
@@ -104,7 +104,7 @@ Start streaming to the DLNA device:
 POST /play
 
 # Or provide a custom stream URL
-POST /play?streamUrl=https://stream.radio357.pl/stream.aac
+POST /play?streamUrl=https://stream.radio357.pl
 ```
 
 Examples:
@@ -113,14 +113,14 @@ Examples:
 curl -X POST http://localhost:5000/play
 
 # With custom URL
-curl -X POST "http://localhost:5000/play?streamUrl=https://stream.radio357.pl/stream.aac"
+curl -X POST "http://localhost:5000/play?streamUrl=https://stream.radio357.pl"
 ```
 
 Response:
 ```json
 {
   "status": "playing",
-  "stream_url": "https://stream.radio357.pl/stream.aac",
+  "stream_url": "https://stream.radio357.pl",
   "transcoded_url": "http://192.168.1.50:8080/stream.mp3"
 }
 ```
