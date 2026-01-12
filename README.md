@@ -28,8 +28,6 @@ The application works as follows:
 
 ## Installation
 
-### Using Docker Compose (recommended)
-
 1. Clone the repository:
 ```bash
 git clone https://github.com/rafalkalinski/stream-to-dlna.git
@@ -48,23 +46,6 @@ radio:
 3. Start the service:
 ```bash
 docker-compose up -d
-```
-
-### Manual Installation
-
-1. Install Python 3.11+ and FFmpeg:
-```bash
-apt-get install python3 python3-pip ffmpeg
-```
-
-2. Install Python dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-3. Configure `config.yaml` and run:
-```bash
-python -m app.main
 ```
 
 ## Configuration
@@ -322,6 +303,25 @@ stream-to-dlna/
 ├── docker-compose.yaml
 ├── LICENSE
 └── README.md
+```
+
+### Local Development
+
+To run locally without Docker:
+
+1. Install dependencies:
+```bash
+# Install FFmpeg
+apt-get install ffmpeg  # Debian/Ubuntu
+brew install ffmpeg     # macOS
+
+# Install Python dependencies
+pip install -r requirements.txt
+```
+
+2. Run the application:
+```bash
+python -m app.main
 ```
 
 ### Running Tests
