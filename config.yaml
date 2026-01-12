@@ -2,10 +2,12 @@
 
 # DLNA device settings
 dlna:
-  # IP address of your DLNA device
-  ip: "192.168.1.100"
+  # DLNA device host (IP address, hostname, or domain)
+  host: "192.168.1.100"
   # Port for DLNA AVTransport control (default: 55000)
   port: 55000
+  # Protocol (http or https)
+  protocol: "http"
 
 # Radio streaming settings
 radio:

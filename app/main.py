@@ -49,10 +49,11 @@ def initialize():
     logger.info("Configuration loaded")
 
     dlna_client = DLNAClient(
-        device_ip=config.dlna_ip,
-        device_port=config.dlna_port
+        device_host=config.dlna_host,
+        device_port=config.dlna_port,
+        protocol=config.dlna_protocol
     )
-    logger.info(f"DLNA client initialized for device at {config.dlna_ip}:{config.dlna_port}")
+    logger.info(f"DLNA client initialized for device at {config.dlna_protocol}://{config.dlna_host}:{config.dlna_port}")
 
 
 @app.route('/health', methods=['GET'])
