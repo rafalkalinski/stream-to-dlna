@@ -2,12 +2,8 @@
 
 # DLNA device settings
 dlna:
-  # DLNA device host (IP address, hostname, or domain)
+  # DLNA device address (IP address, hostname like panasonic.local, or domain)
   host: "192.168.1.100"
-  # Port for DLNA AVTransport control (default: 55000)
-  port: 55000
-  # Protocol (http or https)
-  protocol: "http"
 
 # Radio streaming settings
 radio:
@@ -27,3 +23,8 @@ streaming:
   port: 8080
   # MP3 encoding bitrate (e.g., 128k, 192k, 256k)
   mp3_bitrate: "128k"
+
+# Advanced DLNA settings (optional, use defaults if not specified)
+# dlna_advanced:
+#   port: 55000        # DLNA control port (default: 55000)
+#   protocol: "http"   # Protocol: http or https (default: http)

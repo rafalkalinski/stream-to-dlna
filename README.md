@@ -39,9 +39,7 @@ cd stream-to-dlna
 2. Edit `config.yaml` with your settings:
 ```yaml
 dlna:
-  host: "192.168.1.100"  # Your DLNA device (IP, hostname, or domain)
-  port: 55000
-  protocol: "http"       # http or https
+  host: "192.168.1.100"  # Your DLNA device address
 
 radio:
   default_url: "https://stream.radio357.pl"
@@ -76,9 +74,7 @@ Edit `config.yaml`:
 ```yaml
 # DLNA device settings
 dlna:
-  host: "192.168.1.100"   # DLNA device host (IP, hostname like panasonic.local, or domain)
-  port: 55000             # DLNA control port
-  protocol: "http"        # Protocol: http or https (most devices use http)
+  host: "192.168.1.100"   # Your DLNA device address (IP, hostname, or domain)
 
 # Radio streaming settings
 radio:
@@ -86,16 +82,16 @@ radio:
 
 # API server settings
 server:
-  host: "0.0.0.0"
-  port: 5000
+  host: "0.0.0.0"         # Bind to all interfaces
+  port: 5000              # REST API port
 
 # Streaming settings
 streaming:
-  port: 8080              # Port for MP3 stream
+  port: 8080              # Port for transcoded MP3 stream
   mp3_bitrate: "128k"     # MP3 encoding bitrate
 ```
 
-### DLNA Device Configuration Examples
+### DLNA Device Address Examples
 
 The `host` field supports multiple formats:
 
@@ -103,26 +99,24 @@ The `host` field supports multiple formats:
 # IP address
 dlna:
   host: "192.168.1.100"
-  port: 55000
-  protocol: "http"
 
 # Hostname (mDNS)
 dlna:
   host: "panasonic.local"
-  port: 55000
-  protocol: "http"
 
 # Domain name
 dlna:
   host: "radio.home.lan"
-  port: 55000
-  protocol: "http"
+```
 
-# HTTPS (if your device supports it)
-dlna:
-  host: "secure-radio.local"
-  port: 55443
-  protocol: "https"
+### Advanced DLNA Settings
+
+If your device uses non-standard settings, uncomment in `config.yaml`:
+
+```yaml
+dlna_advanced:
+  port: 55000        # DLNA control port (default: 55000)
+  protocol: "http"   # Protocol: http or https (default: http)
 ```
 
 ## API Endpoints
@@ -142,10 +136,10 @@ POST /play?streamUrl=https://stream.radio357.pl
 Examples:
 ```bash
 # Using default URL
-curl -X POST http://localhost:5000/play
+curl -X POST http://192.168.1.50:5000/play
 
 # With custom URL
-curl -X POST "http://localhost:5000/play?streamUrl=https://stream.radio357.pl"
+curl -X POST "http://192.168.1.50:5000/play?streamUrl=https://stream.radio357.pl"
 ```
 
 Response:
@@ -156,6 +150,8 @@ Response:
   "transcoded_url": "http://192.168.1.50:8080/stream.mp3"
 }
 ```
+
+Note: Replace `192.168.1.50` with the IP address of your Docker host.
 
 ### Stop Playback
 
@@ -216,17 +212,21 @@ Add to your `configuration.yaml`:
 ```yaml
 rest_command:
   radio_play:
-    url: http://192.168.1.50:5000/play
+    url: http://192.168.1.50:5000/play  # Replace with your Docker host IP
     method: POST
 
   radio_play_custom:
-    url: "http://192.168.1.50:5000/play?streamUrl={{ streamUrl }}"
+    url: "http://192.168.1.50:5000/play?streamUrl={{ streamUrl }}"  # Replace with your Docker host IP
     method: POST
 
   radio_stop:
-    url: http://192.168.1.50:5000/stop
+    url: http://192.168.1.50:5000/stop  # Replace with your Docker host IP
     method: POST
 ```
+
+Where:
+- `192.168.1.50` - IP address where this application is running (your Docker host)
+- `192.168.1.100` - IP address of your DLNA device (configured in `config.yaml`)
 
 ### Automation Example
 
