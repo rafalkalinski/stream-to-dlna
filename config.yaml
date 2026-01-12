@@ -1,0 +1,27 @@
+# DLNA Radio Streamer Configuration
+
+# DLNA device settings
+dlna:
+  # IP address of your DLNA device
+  ip: "192.168.1.100"
+  # Port for DLNA AVTransport control (default: 55000)
+  port: 55000
+
+# Radio streaming settings
+radio:
+  # Default radio stream URL (can be overridden via API)
+  default_url: "http://example.com/stream.aac"
+
+# API server settings
+server:
+  # Host to bind Flask API server (0.0.0.0 for all interfaces)
+  host: "0.0.0.0"
+  # Port for REST API
+  port: 5000
+
+# Streaming settings
+streaming:
+  # Port for serving transcoded MP3 stream
+  port: 8080
+  # MP3 encoding bitrate (e.g., 128k, 192k, 256k)
+  mp3_bitrate: "128k"
