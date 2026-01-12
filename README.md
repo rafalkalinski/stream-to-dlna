@@ -39,8 +39,9 @@ cd stream-to-dlna
 2. Edit `config.yaml` with your settings:
 ```yaml
 dlna:
-  ip: "192.168.1.100"  # Your DLNA device IP
+  host: "192.168.1.100"  # Your DLNA device (IP, hostname, or domain)
   port: 55000
+  protocol: "http"       # http or https
 
 radio:
   default_url: "https://stream.radio357.pl"
@@ -75,8 +76,9 @@ Edit `config.yaml`:
 ```yaml
 # DLNA device settings
 dlna:
-  ip: "192.168.1.100"     # DLNA device IP address
+  host: "192.168.1.100"   # DLNA device host (IP, hostname like panasonic.local, or domain)
   port: 55000             # DLNA control port
+  protocol: "http"        # Protocol: http or https (most devices use http)
 
 # Radio streaming settings
 radio:
@@ -91,6 +93,36 @@ server:
 streaming:
   port: 8080              # Port for MP3 stream
   mp3_bitrate: "128k"     # MP3 encoding bitrate
+```
+
+### DLNA Device Configuration Examples
+
+The `host` field supports multiple formats:
+
+```yaml
+# IP address
+dlna:
+  host: "192.168.1.100"
+  port: 55000
+  protocol: "http"
+
+# Hostname (mDNS)
+dlna:
+  host: "panasonic.local"
+  port: 55000
+  protocol: "http"
+
+# Domain name
+dlna:
+  host: "radio.home.lan"
+  port: 55000
+  protocol: "http"
+
+# HTTPS (if your device supports it)
+dlna:
+  host: "secure-radio.local"
+  port: 55443
+  protocol: "https"
 ```
 
 ## API Endpoints
@@ -226,10 +258,12 @@ automation:
 
 ### DLNA device not responding
 
-1. Verify the device IP address in `config.yaml`
+1. Verify the device host address in `config.yaml`
 2. Check network connectivity:
 ```bash
 docker exec dlna-radio-streamer ping 192.168.1.100
+# or for hostnames
+docker exec dlna-radio-streamer ping panasonic.local
 ```
 
 3. Some devices use different control URLs. Check device documentation or use a UPnP discovery tool.

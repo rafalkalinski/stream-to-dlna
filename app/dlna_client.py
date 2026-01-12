@@ -11,10 +11,11 @@ logger = logging.getLogger(__name__)
 class DLNAClient:
     """Simple DLNA/UPnP AVTransport client."""
 
-    def __init__(self, device_ip: str, device_port: int = 55000):
-        self.device_ip = device_ip
+    def __init__(self, device_host: str, device_port: int = 55000, protocol: str = "http"):
+        self.device_host = device_host
         self.device_port = device_port
-        self.control_url = f"http://{device_ip}:{device_port}/DMR/control/AVTransport1"
+        self.protocol = protocol
+        self.control_url = f"{protocol}://{device_host}:{device_port}/DMR/control/AVTransport1"
         self.instance_id = "0"
 
     def _send_soap_request(self, action: str, arguments: dict = None) -> Optional[str]:
