@@ -32,7 +32,7 @@ The application works as follows:
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/stream-to-dlna.git
+git clone https://github.com/rafalkalinski/stream-to-dlna.git
 cd stream-to-dlna
 ```
 
