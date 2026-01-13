@@ -84,9 +84,8 @@ def play():
             logger.info("Stopping existing stream")
             streamer.stop()
 
-        # Stop DLNA device to ensure clean state
-        logger.info("Stopping DLNA device")
-        dlna_client.stop()
+        # Stop DLNA device to ensure clean state (only if playing)
+        dlna_client.stop_if_playing()
 
         # Create new streamer
         streamer = AudioStreamer(
@@ -137,8 +136,8 @@ def stop():
     global streamer
 
     try:
-        # Stop DLNA playback
-        dlna_client.stop()
+        # Stop DLNA playback (only if playing)
+        dlna_client.stop_if_playing()
 
         # Stop streamer
         if streamer:

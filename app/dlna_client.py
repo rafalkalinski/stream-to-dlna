@@ -95,6 +95,26 @@ class DLNAClient:
         response = self._send_soap_request('Stop')
         return response is not None
 
+    def stop_if_playing(self) -> bool:
+        """Stop playback only if device is currently playing or transitioning.
+
+        Returns True if stop was sent or device was already stopped, False on error.
+        """
+        info = self.get_transport_info()
+        if not info:
+            logger.warning("Could not get transport info, attempting stop anyway")
+            return self.stop()
+
+        state = info.get('state', 'UNKNOWN')
+
+        # Only send stop if device is in a state that can be stopped
+        if state in ['PLAYING', 'TRANSITIONING', 'PAUSED_PLAYBACK']:
+            logger.info(f"Device is {state}, sending Stop command")
+            return self.stop()
+        else:
+            logger.debug(f"Device is {state}, skipping Stop command")
+            return True  # Consider this success - device is already stopped
+
     def pause(self) -> bool:
         """Pause playback."""
         logger.info("Sending Pause command")
