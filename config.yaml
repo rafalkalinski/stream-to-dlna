@@ -1,0 +1,36 @@
+# DLNA Radio Streamer Configuration
+
+# DLNA device settings
+dlna:
+  # DLNA device address (IP address, hostname like panasonic.local, or domain)
+  host: "192.168.1.100"
+
+# Radio streaming settings
+radio:
+  # Default radio stream URL (can be overridden via API)
+  default_url: "https://stream.radio357.pl"
+
+# API server settings
+server:
+  # Host to bind Flask API server (0.0.0.0 for all interfaces)
+  host: "0.0.0.0"
+  # Port for REST API
+  port: 5000
+
+# Streaming settings
+streaming:
+  # Port for serving transcoded MP3 stream
+  port: 8080
+  # MP3 encoding bitrate (e.g., 128k, 192k, 256k)
+  mp3_bitrate: "128k"
+  # Public URL for stream (optional, overrides auto-detection)
+  # Use this if behind reverse proxy (e.g., Nginx Proxy Manager)
+  # Note: Do NOT include /stream.mp3 - it will be appended automatically
+  # Supports both HTTP and HTTPS
+  # public_url: "http://radio.yourdomain.com"
+  # public_url: "https://radio.yourdomain.com"
+
+# Advanced DLNA settings (optional, use defaults if not specified)
+# dlna_advanced:
+#   port: 8080         # DLNA control port (default: 8080)
+#   protocol: "http"   # Protocol: http or https (default: http)
