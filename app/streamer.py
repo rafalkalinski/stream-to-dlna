@@ -143,10 +143,22 @@ class AudioStreamer:
 
     def is_running(self) -> bool:
         """Check if streamer is running."""
-        return self.running and (
-            self.ffmpeg_process is not None and
-            self.ffmpeg_process.poll() is None
-        )
+        # Check if FFmpeg process is actually running
+        if self.ffmpeg_process and self.ffmpeg_process.poll() is None:
+            return True
+
+        # FFmpeg stopped - cleanup if needed
+        if self.running:
+            logger.warning("FFmpeg process ended unexpectedly, cleaning up")
+            self.running = False
+            if self.http_server:
+                try:
+                    self.http_server.shutdown()
+                except:
+                    pass
+                self.http_server = None
+
+        return False
 
     def get_stream_url(self, host: str) -> str:
         """Get the URL to access the transcoded stream."""
