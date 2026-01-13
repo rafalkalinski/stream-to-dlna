@@ -102,8 +102,8 @@ class DLNAClient:
         """
         info = self.get_transport_info()
         if not info:
-            logger.warning("Could not get transport info, attempting stop anyway")
-            return self.stop()
+            logger.debug("Could not get transport info, skipping Stop command")
+            return True  # Skip stop to avoid unnecessary errors
 
         state = info.get('state', 'UNKNOWN')
 
