@@ -94,15 +94,6 @@ POST /play
 POST /play?streamUrl=https://stream.radio357.pl
 ```
 
-Examples:
-```bash
-# Using default URL
-curl -X POST http://192.168.1.50:5000/play
-
-# With custom URL
-curl -X POST "http://192.168.1.50:5000/play?streamUrl=https://stream.radio357.pl"
-```
-
 Response:
 ```json
 {
@@ -111,8 +102,6 @@ Response:
   "transcoded_url": "http://192.168.1.50:8080/stream.mp3"
 }
 ```
-
-Note: Replace `192.168.1.50` with the IP address of your Docker host.
 
 ### Stop Playback
 
@@ -184,10 +173,6 @@ rest_command:
     url: http://192.168.1.50:5000/stop  # Replace with your Docker host IP
     method: POST
 ```
-
-Where:
-- `192.168.1.50` - IP address where this application is running (your Docker host)
-- `192.168.1.100` - IP address of your DLNA device (configured in `config.yaml`)
 
 ### Automation Example
 
