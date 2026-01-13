@@ -80,28 +80,6 @@ streaming:
 #   protocol: "http"   # Protocol: http or https (default: http)
 ```
 
-**Nginx Proxy Manager Setup:**
-
-If using reverse proxy, configure in NPM:
-- **Proxy Host**: `radio.yourdomain.local`
-  - Scheme: `http`
-  - Forward Hostname/IP: `dlna-radio-streamer` (or Docker host IP)
-  - Forward Port: `5000`
-  - Enable SSL if desired (Force SSL, HTTP/2, HSTS)
-
-- **Custom Location**: `/stream.mp3`
-  - Scheme: `http`
-  - Forward Hostname/IP: `dlna-radio-streamer` (or Docker host IP)
-  - Forward Port: `8080`
-
-Then update `config.yaml`:
-```yaml
-streaming:
-  public_url: "https://radio.yourdomain.local"  # Use https:// if SSL enabled, http:// otherwise
-```
-
-**Note:** The `/stream.mp3` path is automatically appended. NPM handles SSL termination - the connection between NPM and container remains HTTP.
-
 ## API Endpoints
 
 ### Start Playback
