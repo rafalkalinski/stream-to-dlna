@@ -187,10 +187,13 @@ def status():
         }), 500
 
 
-def main():
-    """Main entry point."""
-    initialize()
+# Initialize application on module import (for gunicorn)
+initialize()
+logger.info("DLNA Radio Streamer initialized")
 
+
+def main():
+    """Main entry point for direct execution (development only)."""
     host = config.server_host
     port = config.server_port
 
