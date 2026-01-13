@@ -70,58 +70,37 @@ server:
 streaming:
   port: 8080              # Port for transcoded MP3 stream
   mp3_bitrate: "128k"     # MP3 encoding bitrate
+
+  # Optional: Public URL for reverse proxy (e.g., Nginx Proxy Manager)
+  # public_url: "http://radio.yourdomain.local"
+
+# Optional: Advanced DLNA settings (uncomment if needed)
+# dlna_advanced:
+#   port: 8080         # DLNA control port (default: 8080)
+#   protocol: "http"   # Protocol: http or https (default: http)
 ```
 
-### Advanced DLNA Settings
+**Nginx Proxy Manager Setup:**
 
-If your device uses non-standard settings, uncomment in `config.yaml`:
+If using reverse proxy, configure in NPM:
+- **Proxy Host**: `radio.yourdomain.local`
+  - Scheme: `http`
+  - Forward Hostname/IP: `dlna-radio-streamer` (or Docker host IP)
+  - Forward Port: `5000`
+  - Enable SSL if desired (Force SSL, HTTP/2, HSTS)
 
-```yaml
-dlna_advanced:
-  port: 8080         # DLNA control port (default: 8080)
-  protocol: "http"   # Protocol: http or https (default: http)
-```
+- **Custom Location**: `/stream.mp3`
+  - Scheme: `http`
+  - Forward Hostname/IP: `dlna-radio-streamer` (or Docker host IP)
+  - Forward Port: `8080`
 
-### Reverse Proxy Configuration
-
-If you're using a reverse proxy (e.g., Nginx Proxy Manager), configure the public URL:
-
+Then update `config.yaml`:
 ```yaml
 streaming:
-  port: 8080
-  mp3_bitrate: "128k"
-  public_url: "http://radio.yourdomain.local"  # Your reverse proxy URL
+  public_url: "https://radio.yourdomain.local"  # Use https:// if SSL enabled, http:// otherwise
 ```
 
-**Example with Nginx Proxy Manager:**
-
-1. In `config.yaml`:
-```yaml
-streaming:
-  # Use HTTPS if you have SSL certificate configured in NPM
-  public_url: "https://radio.kalina4.duckdns.org"
-  # Or HTTP if no SSL
-  # public_url: "http://radio.kalina4.duckdns.org"
-```
-
-2. In Nginx Proxy Manager:
-   - **Proxy Host**: `radio.kalina4.duckdns.org`
-     - Scheme: `http`
-     - Forward Hostname/IP: `dlna-radio-streamer` (or Docker host IP)
-     - Forward Port: `5000`
-     - Enable SSL if desired (Force SSL, HTTP/2, HSTS)
-
-   - **Custom Location**: `/stream.mp3`
-     - Scheme: `http`
-     - Forward Hostname/IP: `dlna-radio-streamer` (or Docker host IP)
-     - Forward Port: `8080`
-
-3. Application will return: `https://radio.kalina4.duckdns.org/stream.mp3` (or `http://` depending on your config)
-
-**Notes:**
-- The `/stream.mp3` path is automatically appended. Do not include it in `public_url`.
-- NPM handles SSL termination - the connection between NPM and container remains HTTP.
-- Make sure NPM and the container are in the same Docker network, or use host IP with exposed ports.
+**Note:** The `/stream.mp3` path is automatically appended. NPM handles SSL termination - the connection between NPM and container remains HTTP.
 
 ## API Endpoints
 
