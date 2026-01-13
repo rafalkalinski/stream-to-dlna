@@ -42,7 +42,7 @@ class Config:
     @property
     def dlna_port(self) -> int:
         """Get DLNA device port."""
-        return self.get('dlna_advanced.port', 55000)
+        return self.get('dlna_advanced.port', 8080)
 
     @property
     def dlna_protocol(self) -> str:

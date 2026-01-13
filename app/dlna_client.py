@@ -15,7 +15,7 @@ class DLNAClient:
         self.device_host = device_host
         self.device_port = device_port
         self.protocol = protocol
-        self.control_url = f"{protocol}://{device_host}:{device_port}/DMR/control/AVTransport1"
+        self.control_url = f"{protocol}://{device_host}:{device_port}/AVTransport/ctrl"
         self.instance_id = "0"
 
     def _send_soap_request(self, action: str, arguments: dict = None) -> Optional[str]:
