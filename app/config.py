@@ -73,3 +73,8 @@ class Config:
     def mp3_bitrate(self) -> str:
         """Get MP3 encoding bitrate."""
         return self.get('streaming.mp3_bitrate', '128k')
+
+    @property
+    def stream_public_url(self) -> str:
+        """Get public URL for stream (optional, overrides auto-detection)."""
+        return self.get('streaming.public_url', '')

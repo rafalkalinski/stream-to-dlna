@@ -23,6 +23,10 @@ streaming:
   port: 8080
   # MP3 encoding bitrate (e.g., 128k, 192k, 256k)
   mp3_bitrate: "128k"
+  # Public URL for stream (optional, overrides auto-detection)
+  # Use this if behind reverse proxy (e.g., Nginx Proxy Manager)
+  # Example: public_url: "http://radio.yourdomain.com"
+  # Note: Do NOT include /stream.mp3 - it will be appended automatically
 
 # Advanced DLNA settings (optional, use defaults if not specified)
 # dlna_advanced:

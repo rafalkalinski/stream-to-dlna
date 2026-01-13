@@ -100,6 +100,33 @@ dlna_advanced:
   protocol: "http"   # Protocol: http or https (default: http)
 ```
 
+### Reverse Proxy Configuration
+
+If you're using a reverse proxy (e.g., Nginx Proxy Manager), configure the public URL:
+
+```yaml
+streaming:
+  port: 8080
+  mp3_bitrate: "128k"
+  public_url: "http://radio.yourdomain.local"  # Your reverse proxy URL
+```
+
+**Example with Nginx Proxy Manager:**
+
+1. In `config.yaml`:
+```yaml
+streaming:
+  public_url: "http://radio.kalina4.duckdns.org"
+```
+
+2. In Nginx Proxy Manager:
+   - **Proxy Host**: `radio.kalina4.duckdns.org` → `dlna-radio-streamer:5000`
+   - **Custom Location**: `/stream.mp3` → `dlna-radio-streamer:8080`
+
+3. Application will return: `http://radio.kalina4.duckdns.org/stream.mp3`
+
+**Note:** The `/stream.mp3` path is automatically appended. Do not include it in `public_url`.
+
 ## API Endpoints
 
 ### Start Playback
