@@ -96,7 +96,7 @@ If your device uses non-standard settings, uncomment in `config.yaml`:
 
 ```yaml
 dlna_advanced:
-  port: 55000        # DLNA control port (default: 55000)
+  port: 8080         # DLNA control port (default: 8080)
   protocol: "http"   # Protocol: http or https (default: http)
 ```
 
