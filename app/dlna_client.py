@@ -96,7 +96,7 @@ class DLNAClient:
         return response is not None
 
     def stop_if_playing(self) -> bool:
-        """Stop playback only if device is currently playing or transitioning.
+        """Stop playback only if device is currently playing or paused.
 
         Returns True if stop was sent or device was already stopped, False on error.
         """
@@ -108,12 +108,13 @@ class DLNAClient:
         state = info.get('state', 'UNKNOWN')
 
         # Only send stop if device is in a state that can be stopped
-        if state in ['PLAYING', 'TRANSITIONING', 'PAUSED_PLAYBACK']:
+        # Note: TRANSITIONING is excluded as device may reject Stop during state transitions
+        if state in ['PLAYING', 'PAUSED_PLAYBACK']:
             logger.info(f"Device is {state}, sending Stop command")
             return self.stop()
         else:
             logger.debug(f"Device is {state}, skipping Stop command")
-            return True  # Consider this success - device is already stopped
+            return True  # Consider this success - device is already stopped or transitioning
 
     def pause(self) -> bool:
         """Pause playback."""
