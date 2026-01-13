@@ -94,11 +94,14 @@ def play():
         # Start streaming
         streamer.start()
 
-        # Get local IP and construct stream URL
-        local_ip = get_local_ip()
-        transcoded_url = streamer.get_stream_url(local_ip)
-
-        logger.info(f"Transcoded stream available at {transcoded_url}")
+        # Get stream URL - use configured public URL or auto-detect local IP
+        if config.stream_public_url:
+            transcoded_url = f"{config.stream_public_url}/stream.mp3"
+            logger.info(f"Using configured public URL: {transcoded_url}")
+        else:
+            local_ip = get_local_ip()
+            transcoded_url = streamer.get_stream_url(local_ip)
+            logger.info(f"Auto-detected stream URL: {transcoded_url}")
 
         # Send to DLNA device
         success = dlna_client.play_url(transcoded_url)
