@@ -231,20 +231,6 @@ Common issues:
 1. Verify DLNA device can reach the Docker host
 2. Check firewall rules on the Docker host
 
-### Network mode issues
-
-The Docker container uses `network_mode: host` to ensure the DLNA device can reach the streaming server. If you need to use bridge networking:
-
-1. Change `docker-compose.yaml`:
-```yaml
-network_mode: bridge
-ports:
-  - "5000:5000"
-  - "8080:8080"
-```
-
-2. Ensure the DLNA device can reach the Docker host IP on these ports
-
 ## Development
 
 ### Project Structure
