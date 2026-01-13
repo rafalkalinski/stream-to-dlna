@@ -146,8 +146,12 @@ def stop():
     global streamer
 
     try:
-        # Stop DLNA playback (only if playing)
-        dlna_client.stop_if_playing()
+        # Always stop DLNA playback (force cleanup)
+        # This ensures DLNA is stopped even if it's in TRANSITIONING or other states
+        try:
+            dlna_client.stop()
+        except Exception as e:
+            logger.debug(f"DLNA stop command failed (may already be stopped): {e}")
 
         # Stop streamer
         if streamer:
