@@ -116,16 +116,30 @@ streaming:
 1. In `config.yaml`:
 ```yaml
 streaming:
-  public_url: "http://radio.kalina4.duckdns.org"
+  # Use HTTPS if you have SSL certificate configured in NPM
+  public_url: "https://radio.kalina4.duckdns.org"
+  # Or HTTP if no SSL
+  # public_url: "http://radio.kalina4.duckdns.org"
 ```
 
 2. In Nginx Proxy Manager:
-   - **Proxy Host**: `radio.kalina4.duckdns.org` → `dlna-radio-streamer:5000`
-   - **Custom Location**: `/stream.mp3` → `dlna-radio-streamer:8080`
+   - **Proxy Host**: `radio.kalina4.duckdns.org`
+     - Scheme: `http`
+     - Forward Hostname/IP: `dlna-radio-streamer` (or Docker host IP)
+     - Forward Port: `5000`
+     - Enable SSL if desired (Force SSL, HTTP/2, HSTS)
 
-3. Application will return: `http://radio.kalina4.duckdns.org/stream.mp3`
+   - **Custom Location**: `/stream.mp3`
+     - Scheme: `http`
+     - Forward Hostname/IP: `dlna-radio-streamer` (or Docker host IP)
+     - Forward Port: `8080`
 
-**Note:** The `/stream.mp3` path is automatically appended. Do not include it in `public_url`.
+3. Application will return: `https://radio.kalina4.duckdns.org/stream.mp3` (or `http://` depending on your config)
+
+**Notes:**
+- The `/stream.mp3` path is automatically appended. Do not include it in `public_url`.
+- NPM handles SSL termination - the connection between NPM and container remains HTTP.
+- Make sure NPM and the container are in the same Docker network, or use host IP with exposed ports.
 
 ## API Endpoints
 
