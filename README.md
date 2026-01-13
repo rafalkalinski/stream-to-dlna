@@ -228,13 +228,8 @@ Common issues:
 
 ### Stream not playing on device
 
-1. Check if the stream is accessible:
-```bash
-curl http://192.168.1.50:8080/stream.mp3
-```
-
-2. Verify DLNA device can reach the Docker host
-3. Check firewall rules on the Docker host
+1. Verify DLNA device can reach the Docker host
+2. Check firewall rules on the Docker host
 
 ### Network mode issues
 
