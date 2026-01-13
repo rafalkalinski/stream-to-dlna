@@ -1,9 +1,10 @@
-FROM python:3.11-slim
+FROM python:3.13-slim
 
-# Install FFmpeg
+# Install FFmpeg and clean up in single layer to reduce image size
 RUN apt-get update && \
     apt-get install -y --no-install-recommends ffmpeg && \
-    rm -rf /var/lib/apt/lists/*
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Set working directory
 WORKDIR /app
@@ -21,5 +22,5 @@ COPY config.yaml .
 # Expose API port and streaming port
 EXPOSE 5000 8080
 
-# Run the application
-CMD ["python", "-m", "app.main"]
+# Run the application with gunicorn
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--threads", "2", "--timeout", "120", "app.main:app"]
