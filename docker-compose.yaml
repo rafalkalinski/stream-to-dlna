@@ -1,9 +1,10 @@
 version: '3.8'
 
 services:
-  dlna-radio-streamer:
+  stream-to-dlna:
     build: .
-    container_name: dlna-radio-streamer
+    image: stream-to-dlna:latest
+    container_name: stream-to-dlna
     restart: unless-stopped
     network_mode: host
     volumes:
