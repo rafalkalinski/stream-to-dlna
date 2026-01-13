@@ -4,10 +4,18 @@ import subprocess
 import threading
 import logging
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from socketserver import ThreadingMixIn
 from typing import Optional
 import time
+import socket
 
 logger = logging.getLogger(__name__)
+
+
+class ReuseAddrHTTPServer(ThreadingMixIn, HTTPServer):
+    """HTTPServer with SO_REUSEADDR to prevent 'Address already in use' errors."""
+    allow_reuse_address = True
+    daemon_threads = True
 
 
 class StreamHandler(BaseHTTPRequestHandler):
@@ -87,8 +95,8 @@ class AudioStreamer:
             # Assign ffmpeg process to handler class
             StreamHandler.ffmpeg_process = self.ffmpeg_process
 
-            # Start HTTP server in separate thread
-            self.http_server = HTTPServer(('0.0.0.0', self.port), StreamHandler)
+            # Start HTTP server in separate thread with address reuse enabled
+            self.http_server = ReuseAddrHTTPServer(('0.0.0.0', self.port), StreamHandler)
             self.server_thread = threading.Thread(
                 target=self.http_server.serve_forever,
                 daemon=True
@@ -125,8 +133,13 @@ class AudioStreamer:
 
         # Stop HTTP server
         if self.http_server:
-            self.http_server.shutdown()
-            self.http_server = None
+            try:
+                self.http_server.shutdown()
+                self.http_server.server_close()  # Close socket to free port
+            except Exception as e:
+                logger.debug(f"Error stopping HTTP server: {e}")
+            finally:
+                self.http_server = None
 
         # Stop FFmpeg
         if self.ffmpeg_process:
@@ -143,10 +156,24 @@ class AudioStreamer:
 
     def is_running(self) -> bool:
         """Check if streamer is running."""
-        return self.running and (
-            self.ffmpeg_process is not None and
-            self.ffmpeg_process.poll() is None
-        )
+        # Check if FFmpeg process is actually running
+        if self.ffmpeg_process and self.ffmpeg_process.poll() is None:
+            return True
+
+        # FFmpeg stopped - cleanup if needed
+        if self.running:
+            logger.warning("FFmpeg process ended unexpectedly, cleaning up")
+            self.running = False
+            if self.http_server:
+                try:
+                    self.http_server.shutdown()
+                    self.http_server.server_close()
+                except Exception as e:
+                    logger.debug(f"Error during auto-cleanup: {e}")
+                finally:
+                    self.http_server = None
+
+        return False
 
     def get_stream_url(self, host: str) -> str:
         """Get the URL to access the transcoded stream."""
