@@ -20,6 +20,16 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+# Suppress werkzeug logging for /health endpoint
+werkzeug_logger = logging.getLogger('werkzeug')
+
+class HealthCheckFilter(logging.Filter):
+    def filter(self, record):
+        # Don't log /health requests
+        return '/health' not in record.getMessage()
+
+werkzeug_logger.addFilter(HealthCheckFilter())
+
 # Initialize Flask app
 app = Flask(__name__)
 
