@@ -153,53 +153,6 @@ Response:
 }
 ```
 
-## Home Assistant Integration
-
-### Configuration
-
-Add to your `configuration.yaml`:
-
-```yaml
-rest_command:
-  radio_play:
-    url: http://192.168.1.50:5000/play  # Replace with your Docker host IP
-    method: POST
-
-  radio_play_custom:
-    url: "http://192.168.1.50:5000/play?streamUrl={{ streamUrl }}"  # Replace with your Docker host IP
-    method: POST
-
-  radio_stop:
-    url: http://192.168.1.50:5000/stop  # Replace with your Docker host IP
-    method: POST
-```
-
-### Automation Example
-
-Create an automation for a button:
-
-```yaml
-automation:
-  - alias: "Radio Play on Button Press"
-    trigger:
-      - platform: event
-        event_type: remote_button_pressed
-        event_data:
-          button: play
-    action:
-      - service: rest_command.radio_play
-
-  - alias: "Radio Stop on Button Double Press"
-    trigger:
-      - platform: event
-        event_type: remote_button_pressed
-        event_data:
-          button: play
-          action: double_press
-    action:
-      - service: rest_command.radio_stop
-```
-
 ## Troubleshooting
 
 ### DLNA device not responding
