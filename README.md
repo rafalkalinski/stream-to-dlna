@@ -72,24 +72,6 @@ streaming:
   mp3_bitrate: "128k"     # MP3 encoding bitrate
 ```
 
-### DLNA Device Address Examples
-
-The `host` field supports multiple formats:
-
-```yaml
-# IP address
-dlna:
-  host: "192.168.1.100"
-
-# Hostname (mDNS)
-dlna:
-  host: "panasonic.local"
-
-# Domain name
-dlna:
-  host: "radio.home.lan"
-```
-
 ### Advanced DLNA Settings
 
 If your device uses non-standard settings, uncomment in `config.yaml`:
