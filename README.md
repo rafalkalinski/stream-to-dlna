@@ -251,25 +251,6 @@ stream-to-dlna/
 └── README.md
 ```
 
-### Local Development
-
-To run locally without Docker:
-
-1. Install dependencies:
-```bash
-# Install FFmpeg
-apt-get install ffmpeg  # Debian/Ubuntu
-brew install ffmpeg     # macOS
-
-# Install Python dependencies
-pip install -r requirements.txt
-```
-
-2. Run the application:
-```bash
-python -m app.main
-```
-
 ### Running Tests
 
 Tests coming soon.
