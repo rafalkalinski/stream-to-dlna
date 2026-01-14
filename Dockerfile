@@ -1,44 +1,23 @@
-# Build stage
-FROM python:3.14-alpine3.21 AS builder
+FROM python:3.14-slim
 
-# Use Alpine Edge repositories for latest packages
-RUN echo "https://dl-cdn.alpinelinux.org/alpine/edge/main" > /etc/apk/repositories && \
-    echo "https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories
-
-# Install build dependencies
-RUN apk add --no-cache gcc musl-dev linux-headers
+# Install FFmpeg and clean up in single layer to reduce image size
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ffmpeg && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Set working directory
 WORKDIR /app
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
-RUN pip install --user -r requirements.txt
-
-# Runtime stage
-FROM python:3.14-alpine3.21
-
-# Use Alpine Edge repositories for latest packages
-RUN echo "https://dl-cdn.alpinelinux.org/alpine/edge/main" > /etc/apk/repositories && \
-    echo "https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories
-
-# Install FFmpeg (runtime only) - should get latest version from Edge
-RUN apk add --no-cache ffmpeg
-
-# Set working directory
-WORKDIR /app
-
-# Copy Python packages from builder
-COPY --from=builder /root/.local /root/.local
+RUN pip install -r requirements.txt
 
 # Copy application code
 COPY app/ ./app/
 
 # Copy default config (will be overridden by volume mount)
 COPY config.yaml .
-
-# Make sure scripts in .local are usable
-ENV PATH=/root/.local/bin:$PATH
 
 # Expose API port and streaming port
 EXPOSE 5000 8080
