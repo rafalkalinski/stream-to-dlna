@@ -1,4 +1,4 @@
-"""FFmpeg-based audio streaming with AAC to MP3 transcoding."""
+"""Audio streaming with optional FFmpeg transcoding or passthrough."""
 
 import subprocess
 import threading
@@ -10,6 +10,35 @@ import time
 import socket
 
 logger = logging.getLogger(__name__)
+
+
+class PassthroughStreamer:
+    """
+    Passthrough streamer - returns original stream URL without transcoding.
+    Used when DLNA device supports the native stream format.
+    """
+
+    def __init__(self, stream_url: str):
+        self.stream_url = stream_url
+        self.running = False
+
+    def start(self):
+        """Mark as running (no actual process to start)."""
+        self.running = True
+        logger.info(f"Passthrough mode enabled for {self.stream_url}")
+
+    def stop(self):
+        """Mark as stopped."""
+        self.running = False
+        logger.info("Passthrough streamer stopped")
+
+    def is_running(self) -> bool:
+        """Check if streamer is active."""
+        return self.running
+
+    def get_stream_url(self, host: str = None) -> str:
+        """Return the original stream URL."""
+        return self.stream_url
 
 
 class ReuseAddrHTTPServer(ThreadingMixIn, HTTPServer):

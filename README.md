@@ -1,24 +1,35 @@
 # DLNA Radio Streamer
 
-Stream internet radio to DLNA-enabled devices with automatic AAC to MP3 transcoding.
+Stream internet radio to DLNA-enabled devices with smart transcoding and multi-device support.
 
 ## Features
 
-- REST API for controlling DLNA devices
-- Automatic audio transcoding (AAC/HLS to MP3)
-- Docker-based deployment
-- Home Assistant integration ready
-- YAML configuration
-- Support for custom stream URLs
+- **Network Discovery**: Automatically scan and discover DLNA devices on your network
+- **Smart Transcoding**: Automatically detects stream format and device capabilities
+  - Passthrough mode when device supports native format
+  - FFmpeg transcoding when needed (AAC → MP3, etc.)
+- **Multi-Device Support**: Scan, select, and switch between multiple DLNA devices
+- **Persistent Device Selection**: Remembers your selected device across restarts
+- **REST API**: Full control via HTTP endpoints
+- **Docker-based deployment**: Easy setup with Docker Compose
+- **Home Assistant integration ready**
+- **YAML configuration**
 
 ## Architecture
 
-The application works as follows:
+The application provides two streaming modes:
 
-1. Receives HTTP request to start streaming
-2. Uses FFmpeg to fetch and transcode the radio stream to MP3
-3. Serves the transcoded stream via HTTP
-4. Instructs the DLNA device to play the stream using UPnP/AVTransport protocol
+**Passthrough Mode** (when device supports native format):
+1. Detects stream format via HTTP headers
+2. Checks device capabilities using UPnP GetProtocolInfo
+3. Sends stream URL directly to DLNA device (no transcoding)
+
+**Transcoding Mode** (when transcoding is needed):
+1. Uses FFmpeg to fetch and transcode the stream to MP3
+2. Serves the transcoded stream via HTTP
+3. Instructs the DLNA device to play the transcoded stream
+
+The mode is automatically selected based on stream format and device capabilities.
 
 ## Requirements
 
@@ -82,16 +93,106 @@ streaming:
 
 ## API Endpoints
 
-### Start Playback
+### Device Discovery
 
-Start streaming to the DLNA device:
+#### Scan Network for DLNA Devices
+
+Discover all DLNA MediaRenderer devices on your network:
+
+```bash
+GET /scan?timeout=5
+```
+
+Response:
+```json
+{
+  "devices": [
+    {
+      "id": "uuid-1234-5678",
+      "friendly_name": "Panasonic SC-PMX9",
+      "manufacturer": "Panasonic",
+      "model_name": "SC-PMX9",
+      "host": "192.168.1.100",
+      "port": 8080,
+      "location": "http://192.168.1.100:8080/description.xml",
+      "control_url": "http://192.168.1.100:8080/AVTransport/ctrl"
+    }
+  ],
+  "count": 1
+}
+```
+
+#### Select a Device
+
+Select a DLNA device and detect its capabilities:
+
+```bash
+# Using device_id from /scan
+POST /device/select?device_id=uuid-1234-5678
+
+# Or send full device info in JSON body
+POST /device/select
+{
+  "device_id": "uuid-1234-5678",
+  "device_info": { ... }
+}
+```
+
+Response:
+```json
+{
+  "status": "selected",
+  "device": {
+    "id": "uuid-1234-5678",
+    "friendly_name": "Panasonic SC-PMX9",
+    "manufacturer": "Panasonic",
+    "model_name": "SC-PMX9",
+    "host": "192.168.1.100",
+    "capabilities": {
+      "supports_mp3": true,
+      "supports_aac": false,
+      "supports_flac": false,
+      "supports_wav": true,
+      "supports_ogg": false
+    }
+  }
+}
+```
+
+#### Get Current Device
+
+View the currently selected device:
+
+```bash
+GET /device/current
+```
+
+Response:
+```json
+{
+  "device": {
+    "id": "uuid-1234-5678",
+    "friendly_name": "Panasonic SC-PMX9",
+    "capabilities": { ... }
+  }
+}
+```
+
+### Playback Control
+
+#### Start Playback
+
+Start streaming with smart transcoding:
 
 ```bash
 # Use default stream URL from config.yaml
 POST /play
 
-# Or provide a custom stream URL
+# Provide a custom stream URL
 POST /play?streamUrl=https://stream.radio357.pl
+
+# Override device for this playback
+POST /play?streamUrl=https://stream.radio357.pl&device_id=uuid-1234-5678
 ```
 
 Response:
@@ -99,11 +200,15 @@ Response:
 {
   "status": "playing",
   "stream_url": "https://stream.radio357.pl",
-  "transcoded_url": "http://192.168.1.50:8080/stream.mp3"
+  "playback_url": "https://stream.radio357.pl",
+  "transcoding": false,
+  "format": "audio/mpeg"
 }
 ```
 
-### Stop Playback
+**Note**: `transcoding: false` means passthrough mode (device plays native format). `transcoding: true` means FFmpeg is transcoding the stream.
+
+#### Stop Playback
 
 Stop streaming:
 
@@ -118,7 +223,9 @@ Response:
 }
 ```
 
-### Check Status
+### Status and Health
+
+#### Check Status
 
 Get current playback status:
 
@@ -137,7 +244,7 @@ Response:
 }
 ```
 
-### Health Check
+#### Health Check
 
 Check if the service is running:
 
@@ -184,6 +291,34 @@ Common issues:
 1. Verify DLNA device can reach the Docker host
 2. Check firewall rules on the Docker host
 
+## Workflow Examples
+
+### Quick Start with Device Discovery
+
+```bash
+# 1. Scan for devices
+curl http://localhost:5000/scan
+
+# 2. Select a device (copy device_id from scan results)
+curl -X POST "http://localhost:5000/device/select?device_id=uuid-1234-5678"
+
+# 3. Start playing radio
+curl -X POST "http://localhost:5000/play?streamUrl=https://stream.radio357.pl"
+
+# 4. Stop playback
+curl -X POST http://localhost:5000/stop
+```
+
+### Using Multiple Devices
+
+```bash
+# Play on device A
+curl -X POST "http://localhost:5000/play?device_id=uuid-device-a&streamUrl=https://radio1.com"
+
+# Switch to device B (without changing selected device)
+curl -X POST "http://localhost:5000/play?device_id=uuid-device-b&streamUrl=https://radio2.com"
+```
+
 ## Development
 
 ### Project Structure
@@ -194,9 +329,12 @@ stream-to-dlna/
 │   ├── __init__.py
 │   ├── main.py          # Flask API application
 │   ├── config.py        # Configuration management
-│   ├── dlna_client.py   # DLNA/UPnP client
-│   └── streamer.py      # FFmpeg streaming
+│   ├── dlna_client.py   # DLNA/UPnP client with capabilities detection
+│   ├── streamer.py      # FFmpeg transcoding & passthrough
+│   ├── discovery.py     # SSDP/UPnP device discovery
+│   └── device_manager.py # Device state management
 ├── config.yaml          # Configuration file
+├── state.json           # Device state (auto-generated)
 ├── requirements.txt     # Python dependencies
 ├── Dockerfile
 ├── docker-compose.yaml

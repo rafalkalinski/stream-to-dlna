@@ -2,7 +2,7 @@
 
 import requests
 import logging
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from xml.etree import ElementTree as ET
 
 logger = logging.getLogger(__name__)
@@ -11,12 +11,13 @@ logger = logging.getLogger(__name__)
 class DLNAClient:
     """Simple DLNA/UPnP AVTransport client."""
 
-    def __init__(self, device_host: str, device_port: int = 55000, protocol: str = "http"):
+    def __init__(self, device_host: str, device_port: int = 55000, protocol: str = "http", control_url: Optional[str] = None):
         self.device_host = device_host
         self.device_port = device_port
         self.protocol = protocol
-        self.control_url = f"{protocol}://{device_host}:{device_port}/AVTransport/ctrl"
+        self.control_url = control_url or f"{protocol}://{device_host}:{device_port}/AVTransport/ctrl"
         self.instance_id = "0"
+        self.capabilities: Optional[Dict[str, Any]] = None
 
     def _send_soap_request(self, action: str, arguments: dict = None) -> Optional[str]:
         """Send SOAP request to DLNA device."""
@@ -155,3 +156,130 @@ class DLNAClient:
         time.sleep(0.5)
 
         return self.play()
+
+    def get_protocol_info(self) -> Optional[str]:
+        """
+        Get supported protocols and formats from the device.
+        Uses ConnectionManager:GetProtocolInfo.
+
+        Returns:
+            Protocol info string or None if failed
+        """
+        # ConnectionManager typically uses same host but different service path
+        connection_manager_url = f"{self.protocol}://{self.device_host}:{self.device_port}/ConnectionManager/ctrl"
+
+        envelope = '''<?xml version="1.0" encoding="utf-8"?>
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
+            s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+    <s:Body>
+        <u:GetProtocolInfo xmlns:u="urn:schemas-upnp-org:service:ConnectionManager:1">
+        </u:GetProtocolInfo>
+    </s:Body>
+</s:Envelope>'''
+
+        headers = {
+            'Content-Type': 'text/xml; charset="utf-8"',
+            'SOAPAction': '"urn:schemas-upnp-org:service:ConnectionManager:1#GetProtocolInfo"',
+        }
+
+        try:
+            response = requests.post(
+                connection_manager_url,
+                data=envelope.encode('utf-8'),
+                headers=headers,
+                timeout=10
+            )
+
+            if response.status_code == 200:
+                # Parse response to extract Sink protocols (what device can play)
+                root = ET.fromstring(response.text)
+                sink_elem = root.find('.//{*}Sink')
+                if sink_elem is not None and sink_elem.text:
+                    logger.debug(f"Device supports protocols: {sink_elem.text[:200]}...")
+                    return sink_elem.text
+                else:
+                    logger.warning("Could not find Sink element in GetProtocolInfo response")
+                    return None
+            else:
+                logger.warning(f"GetProtocolInfo failed: {response.status_code}")
+                return None
+
+        except Exception as e:
+            logger.warning(f"Failed to get protocol info: {e}")
+            return None
+
+    def detect_capabilities(self) -> Dict[str, Any]:
+        """
+        Detect device capabilities including supported audio formats.
+
+        Returns:
+            Dictionary with capability information
+        """
+        protocol_info = self.get_protocol_info()
+
+        capabilities = {
+            'supports_mp3': False,
+            'supports_aac': False,
+            'supports_flac': False,
+            'supports_wav': False,
+            'supports_ogg': False,
+            'raw_protocol_info': protocol_info
+        }
+
+        if protocol_info:
+            # Parse protocol info - format is comma-separated list of:
+            # protocol:network:contentFormat:additionalInfo
+            # e.g., http-get:*:audio/mpeg:*
+            protocols = protocol_info.split(',')
+
+            for proto in protocols:
+                proto_lower = proto.lower()
+                if 'audio/mpeg' in proto_lower or 'audio/mp3' in proto_lower:
+                    capabilities['supports_mp3'] = True
+                if 'audio/aac' in proto_lower or 'audio/x-aac' in proto_lower or 'audio/mp4' in proto_lower:
+                    capabilities['supports_aac'] = True
+                if 'audio/flac' in proto_lower or 'audio/x-flac' in proto_lower:
+                    capabilities['supports_flac'] = True
+                if 'audio/wav' in proto_lower or 'audio/x-wav' in proto_lower:
+                    capabilities['supports_wav'] = True
+                if 'audio/ogg' in proto_lower or 'audio/x-ogg' in proto_lower:
+                    capabilities['supports_ogg'] = True
+
+        self.capabilities = capabilities
+        logger.info(f"Device capabilities: MP3={capabilities['supports_mp3']}, "
+                   f"AAC={capabilities['supports_aac']}, "
+                   f"FLAC={capabilities['supports_flac']}")
+
+        return capabilities
+
+    def can_play_format(self, mime_type: str) -> bool:
+        """
+        Check if device can play a specific MIME type.
+
+        Args:
+            mime_type: MIME type to check (e.g., 'audio/mpeg', 'audio/aac')
+
+        Returns:
+            True if device supports the format
+        """
+        if not self.capabilities:
+            self.detect_capabilities()
+
+        if not self.capabilities:
+            # If we can't detect capabilities, assume transcoding is needed
+            return False
+
+        mime_lower = mime_type.lower()
+
+        if 'mpeg' in mime_lower or 'mp3' in mime_lower:
+            return self.capabilities.get('supports_mp3', False)
+        elif 'aac' in mime_lower or 'mp4' in mime_lower:
+            return self.capabilities.get('supports_aac', False)
+        elif 'flac' in mime_lower:
+            return self.capabilities.get('supports_flac', False)
+        elif 'wav' in mime_lower:
+            return self.capabilities.get('supports_wav', False)
+        elif 'ogg' in mime_lower:
+            return self.capabilities.get('supports_ogg', False)
+
+        return False
