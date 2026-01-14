@@ -65,6 +65,9 @@ class DeviceManager:
             Device information dictionary or None if no device selected
         """
         with self.lock:
+            # Always reload from disk to support multi-worker environments (Gunicorn)
+            # Each worker process has its own memory, so we must read from shared storage
+            self._load_state()
             return self.current_device.copy() if self.current_device else None
 
     def get_device_by_id(self, device_id: str) -> Optional[Dict[str, Any]]:
@@ -78,6 +81,8 @@ class DeviceManager:
             Device information or None if not found
         """
         with self.lock:
+            # Always reload from disk to support multi-worker environments
+            self._load_state()
             if self.current_device and self.current_device.get('id') == device_id:
                 return self.current_device.copy()
             return None
