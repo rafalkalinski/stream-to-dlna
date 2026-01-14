@@ -170,14 +170,14 @@ def scan():
     Query parameters:
     - timeout: Scan timeout in seconds (default: 5, max: 15)
     - force: Force new scan even if cache is fresh (default: false)
-    - max_cache_age: Max cache age in seconds to use cached results (default: 300 = 5 minutes)
+    - max_cache_age: Max cache age in seconds to use cached results (default: 7200 = 2 hours)
     """
     try:
         timeout = request.args.get('timeout', default=5, type=int)
         timeout = min(timeout, 15)  # Max 15 seconds
 
         force = request.args.get('force', default='false', type=str).lower() == 'true'
-        max_cache_age = request.args.get('max_cache_age', default=300, type=int)  # 5 minutes
+        max_cache_age = request.args.get('max_cache_age', default=7200, type=int)  # 2 hours
 
         cache_age = device_manager.get_cache_age()
         use_cache = (not force and
@@ -209,7 +209,27 @@ def scan():
         }), 500
 
 
-@app.route('/device/select', methods=['POST'])
+@app.route('/devices', methods=['GET'])
+def devices():
+    """Get list of discovered devices from cache."""
+    try:
+        cache_age = device_manager.get_cache_age()
+        devices_list = device_manager.get_cached_devices()
+
+        return jsonify({
+            'devices': devices_list,
+            'count': len(devices_list),
+            'cache_age_seconds': cache_age
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error getting devices: {e}", exc_info=True)
+        return jsonify({
+            'error': str(e)
+        }), 500
+
+
+@app.route('/devices/select', methods=['POST'])
 def device_select():
     """Select a DLNA device and detect its capabilities. Can select by device_id, host, or hostname."""
     global dlna_client
@@ -304,7 +324,7 @@ def device_select():
         }), 500
 
 
-@app.route('/device/current', methods=['GET'])
+@app.route('/devices/current', methods=['GET'])
 def device_current():
     """Get currently selected device."""
     try:
