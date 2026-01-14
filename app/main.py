@@ -36,6 +36,31 @@ werkzeug_logger.addFilter(HealthCheckFilter())
 # Initialize Flask app
 app = Flask(__name__)
 
+# JSON error handlers
+@app.errorhandler(404)
+def not_found(error):
+    """Return JSON for 404 errors instead of HTML."""
+    return jsonify({
+        'error': 'Not Found',
+        'message': 'The requested endpoint does not exist'
+    }), 404
+
+@app.errorhandler(405)
+def method_not_allowed(error):
+    """Return JSON for 405 errors instead of HTML."""
+    return jsonify({
+        'error': 'Method Not Allowed',
+        'message': 'The method is not allowed for the requested endpoint'
+    }), 405
+
+@app.errorhandler(500)
+def internal_error(error):
+    """Return JSON for 500 errors instead of HTML."""
+    return jsonify({
+        'error': 'Internal Server Error',
+        'message': 'An unexpected error occurred'
+    }), 500
+
 # Global state
 config: Optional[Config] = None
 streamer: Optional[Union[AudioStreamer, PassthroughStreamer]] = None
@@ -61,7 +86,8 @@ def _create_dlna_client_from_device(device_info: dict) -> DLNAClient:
         device_host=device_info.get('host', ''),
         device_port=device_info.get('port', 8080),
         protocol='http',  # TODO: detect from control_url if needed
-        control_url=device_info.get('control_url')
+        control_url=device_info.get('control_url'),
+        connection_manager_url=device_info.get('connection_manager_url')
     )
 
 
@@ -144,18 +170,17 @@ def scan():
 
 @app.route('/device/select', methods=['POST'])
 def device_select():
-    """Select a DLNA device and detect its capabilities."""
+    """Select a DLNA device and detect its capabilities. Can select by device_id, host, or hostname."""
     global dlna_client
 
     try:
-        # Get device_id from query parameter or JSON body
-        device_id = request.args.get('device_id')
-        if not device_id and request.is_json:
-            device_id = request.json.get('device_id')
+        # Get device identifier from query parameter or JSON body
+        device_id = request.args.get('device_id') or (request.json.get('device_id') if request.is_json else None)
+        host = request.args.get('host') or (request.json.get('host') if request.is_json else None)
 
-        if not device_id:
+        if not device_id and not host:
             return jsonify({
-                'error': 'device_id parameter required'
+                'error': 'Either device_id or host parameter is required'
             }), 400
 
         # Option 1: If device_id is provided directly as device info (from /scan)
@@ -166,22 +191,31 @@ def device_select():
             # Full device info provided
             device_info = request.json['device_info']
         else:
-            # Try to get from current device if IDs match (edge case)
+            # Try to get from current device if ID or host matches (edge case)
             current = device_manager.get_current_device()
-            if current and current.get('id') == device_id:
-                device_info = current
-            else:
+            if current:
+                if device_id and current.get('id') == device_id:
+                    device_info = current
+                elif host and current.get('host') == host:
+                    device_info = current
+
+            if not device_info:
                 # Need to do a quick scan to find the device
-                logger.info(f"Scanning for device with ID: {device_id}")
+                identifier = device_id or host
+                logger.info(f"Scanning for device: {identifier}")
                 devices = SSDPDiscovery.discover(timeout=5)
                 for device in devices:
-                    if device.get('id') == device_id:
+                    if device_id and device.get('id') == device_id:
+                        device_info = device
+                        break
+                    elif host and device.get('host') == host:
                         device_info = device
                         break
 
         if not device_info:
+            identifier = device_id or host
             return jsonify({
-                'error': f'Device with ID {device_id} not found'
+                'error': f'Device {identifier} not found'
             }), 404
 
         # Create DLNA client for this device

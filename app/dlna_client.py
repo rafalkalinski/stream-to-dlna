@@ -11,11 +11,13 @@ logger = logging.getLogger(__name__)
 class DLNAClient:
     """Simple DLNA/UPnP AVTransport client."""
 
-    def __init__(self, device_host: str, device_port: int = 55000, protocol: str = "http", control_url: Optional[str] = None):
+    def __init__(self, device_host: str, device_port: int = 55000, protocol: str = "http",
+                 control_url: Optional[str] = None, connection_manager_url: Optional[str] = None):
         self.device_host = device_host
         self.device_port = device_port
         self.protocol = protocol
         self.control_url = control_url or f"{protocol}://{device_host}:{device_port}/AVTransport/ctrl"
+        self.connection_manager_url = connection_manager_url or f"{protocol}://{device_host}:{device_port}/ConnectionManager/ctrl"
         self.instance_id = "0"
         self.capabilities: Optional[Dict[str, Any]] = None
 
@@ -165,8 +167,7 @@ class DLNAClient:
         Returns:
             Protocol info string or None if failed
         """
-        # ConnectionManager typically uses same host but different service path
-        connection_manager_url = f"{self.protocol}://{self.device_host}:{self.device_port}/ConnectionManager/ctrl"
+        logger.debug(f"Getting protocol info from {self.connection_manager_url}")
 
         envelope = '''<?xml version="1.0" encoding="utf-8"?>
 <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
@@ -184,7 +185,7 @@ class DLNAClient:
 
         try:
             response = requests.post(
-                connection_manager_url,
+                self.connection_manager_url,
                 data=envelope.encode('utf-8'),
                 headers=headers,
                 timeout=10
@@ -201,7 +202,7 @@ class DLNAClient:
                     logger.warning("Could not find Sink element in GetProtocolInfo response")
                     return None
             else:
-                logger.warning(f"GetProtocolInfo failed: {response.status_code}")
+                logger.warning(f"GetProtocolInfo failed: {response.status_code} - {response.text[:200]}")
                 return None
 
         except Exception as e:

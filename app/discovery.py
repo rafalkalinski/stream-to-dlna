@@ -187,6 +187,9 @@ class SSDPDiscovery:
             # Find AVTransport service control URL
             control_url = SSDPDiscovery._find_av_transport_control_url(device, ns, parsed_url.scheme, host, port)
 
+            # Find ConnectionManager service control URL (for GetProtocolInfo)
+            connection_manager_url = SSDPDiscovery._find_connection_manager_control_url(device, ns, parsed_url.scheme, host, port)
+
             device_id = udn.replace('uuid:', '') if udn else None
 
             return {
@@ -198,6 +201,7 @@ class SSDPDiscovery:
                 'port': port,
                 'location': location,
                 'control_url': control_url,
+                'connection_manager_url': connection_manager_url,
                 'udn': udn
             }
 
@@ -241,3 +245,40 @@ class SSDPDiscovery:
         except Exception as e:
             logger.debug(f"Error finding AVTransport control URL: {e}")
             return f"{scheme}://{host}:{port}/AVTransport/ctrl"
+
+    @staticmethod
+    def _find_connection_manager_control_url(device, ns, scheme, host, port) -> Optional[str]:
+        """Find ConnectionManager service control URL."""
+        try:
+            # Look for ConnectionManager service
+            services = device.findall('.//upnp:service', ns)
+            if not services:
+                services = device.findall('.//service')
+
+            for service in services:
+                service_type = service.find('.//upnp:serviceType', ns)
+                if service_type is None:
+                    service_type = service.find('.//serviceType')
+
+                if service_type is not None and 'ConnectionManager' in service_type.text:
+                    control_url_elem = service.find('.//upnp:controlURL', ns)
+                    if control_url_elem is None:
+                        control_url_elem = service.find('.//controlURL')
+
+                    if control_url_elem is not None:
+                        control_path = control_url_elem.text
+                        # Build full URL
+                        if control_path.startswith('http'):
+                            return control_path
+                        else:
+                            # Relative path - build full URL
+                            if not control_path.startswith('/'):
+                                control_path = '/' + control_path
+                            return f"{scheme}://{host}:{port}{control_path}"
+
+            # Fallback to common default
+            return f"{scheme}://{host}:{port}/ConnectionManager/ctrl"
+
+        except Exception as e:
+            logger.debug(f"Error finding ConnectionManager control URL: {e}")
+            return f"{scheme}://{host}:{port}/ConnectionManager/ctrl"
