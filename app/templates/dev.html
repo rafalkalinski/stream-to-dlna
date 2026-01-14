@@ -295,11 +295,13 @@
             const timestamp = new Date().toLocaleTimeString();
             const classes = { error: 'error', success: 'success' };
             const className = classes[type] || '';
-            const line = `<span class="timestamp">[${timestamp}]</span> <span class="${className}">${escapeHtml(message)}</span>\n`;
-            output.insertAdjacentHTML('beforeend', line);
 
-            // Simple scroll to bottom
-            output.scrollTop = output.scrollHeight;
+            const div = document.createElement('div');
+            div.innerHTML = `<span class="timestamp">[${timestamp}]</span> <span class="${className}">${escapeHtml(message)}</span>`;
+            output.appendChild(div);
+
+            // Scroll to the new element
+            div.scrollIntoView({ behavior: 'auto', block: 'end' });
         }
 
         function escapeHtml(text) {
