@@ -250,9 +250,13 @@
             const timestamp = new Date().toLocaleTimeString();
             const classes = { error: 'error', success: 'success' };
             const className = classes[type] || '';
-            const line = `<span class="timestamp">[${timestamp}]</span> <span class="${className}">${escapeHtml(message)}</span>`;
-            output.innerHTML += line + '\n';
-            output.scrollTop = output.scrollHeight;
+            const line = `<span class="timestamp">[${timestamp}]</span> <span class="${className}">${escapeHtml(message)}</span>\n`;
+            output.insertAdjacentHTML('beforeend', line);
+
+            // Auto-scroll to bottom
+            requestAnimationFrame(() => {
+                output.scrollTop = output.scrollHeight;
+            });
         }
 
         function escapeHtml(text) {
