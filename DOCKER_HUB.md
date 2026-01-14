@@ -52,9 +52,7 @@ Open `http://localhost:5000` in browser for interactive dev console, or use CLI:
 curl http://localhost:5000/devices?force_scan=true
 
 # Select device by IP
-curl -X POST http://localhost:5000/devices/select \
-  -H "Content-Type: application/json" \
-  -d '{"ip": "192.168.1.100"}'
+curl -X POST "http://localhost:5000/devices/select?ip=192.168.1.100"
 
 # Start playback
 curl -X POST http://localhost:5000/play?streamUrl=https://stream.url
