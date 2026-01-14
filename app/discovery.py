@@ -79,8 +79,9 @@ class SSDPDiscovery:
                     import time
                     time.sleep(0.1)  # Small delay between sends
 
-            # Collect responses
+            # Collect responses - just gather locations first
             response_count = 0
+            locations = []
             while True:
                 try:
                     data, addr = sock.recvfrom(65507)
@@ -95,13 +96,8 @@ class SSDPDiscovery:
 
                     if location and location not in seen_locations:
                         seen_locations.add(location)
+                        locations.append(location)
                         logger.info(f"Found device at {location}")
-
-                        # Fetch device description
-                        device_info = SSDPDiscovery._fetch_device_info(location)
-                        if device_info:
-                            devices.append(device_info)
-                            logger.info(f"Discovered device: {device_info.get('friendly_name', 'Unknown')}")
 
                 except socket.timeout:
                     # Expected - no more responses
@@ -112,6 +108,30 @@ class SSDPDiscovery:
                     continue
 
             sock.close()
+
+            # Fetch device descriptions in parallel
+            if locations:
+                from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError
+                logger.debug(f"Fetching device info for {len(locations)} locations in parallel")
+
+                with ThreadPoolExecutor(max_workers=min(10, len(locations))) as executor:
+                    future_to_location = {
+                        executor.submit(SSDPDiscovery._fetch_device_info, loc): loc
+                        for loc in locations
+                    }
+
+                    # Wait for all futures with a timeout (max 15s for all parallel fetches)
+                    for future in as_completed(future_to_location, timeout=15):
+                        location = future_to_location[future]
+                        try:
+                            device_info = future.result(timeout=1)  # Individual result timeout
+                            if device_info:
+                                devices.append(device_info)
+                                logger.info(f"Discovered device: {device_info.get('friendly_name', 'Unknown')}")
+                        except TimeoutError:
+                            logger.debug(f"Timeout fetching device info from {location}")
+                        except Exception as e:
+                            logger.debug(f"Failed to fetch device info from {location}: {e}")
 
         except Exception as e:
             logger.error(f"SSDP discovery failed: {e}", exc_info=True)
