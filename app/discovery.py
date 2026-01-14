@@ -57,10 +57,18 @@ class SSDPDiscovery:
             # Set multicast TTL (time-to-live)
             sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 2)
 
-            # Bind to any address to receive responses
-            sock.bind(('0.0.0.0', 0))
+            # Join multicast group - CRITICAL for Docker environments
+            # This tells the kernel to accept packets sent to the multicast group
+            import struct
+            mreq = struct.pack('4sL', socket.inet_aton(SSDPDiscovery.SSDP_ADDR), socket.INADDR_ANY)
+            sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+
+            # Bind to SSDP multicast port to receive responses
+            sock.bind(('', SSDPDiscovery.SSDP_PORT))
 
             sock.settimeout(timeout)
+
+            logger.debug(f"Socket bound to port {SSDPDiscovery.SSDP_PORT}, joined multicast group {SSDPDiscovery.SSDP_ADDR}")
 
             # Send M-SEARCH request (send twice for reliability)
             msg_encoded = msg.encode('utf-8')
