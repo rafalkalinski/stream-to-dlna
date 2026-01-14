@@ -295,9 +295,9 @@ def play():
                 'error': 'No stream URL provided and no default configured'
             }), 400
 
-        # Handle device_id override
+        # Handle device_id override or use current device
         device_id = request.args.get('device_id')
-        active_client = dlna_client  # Default to current client
+        device_info = None
 
         if device_id:
             logger.info(f"Using device override: {device_id}")
@@ -323,6 +323,20 @@ def play():
             # Ensure capabilities are detected
             if not device_info.get('capabilities'):
                 device_info['capabilities'] = active_client.detect_capabilities()
+        else:
+            # No device_id override - use current device from device_manager
+            device_info = device_manager.get_current_device()
+
+            if not device_info:
+                return jsonify({
+                    'error': 'No device selected. Please use /device/select first.'
+                }), 400
+
+            # Create client from current device (with capabilities loaded from state)
+            active_client = _create_dlna_client_from_device(device_info)
+            # Load capabilities from saved device info
+            if device_info.get('capabilities'):
+                active_client.capabilities = device_info.get('capabilities')
 
         # Stop existing stream if running
         if streamer and streamer.is_running():
