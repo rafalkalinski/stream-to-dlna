@@ -3,7 +3,8 @@
 import json
 import logging
 import os
-from typing import Optional, Dict, Any
+import time
+from typing import Optional, Dict, Any, List
 from threading import Lock
 
 logger = logging.getLogger(__name__)
@@ -15,6 +16,8 @@ class DeviceManager:
     def __init__(self, state_file: str = "/app/state.json"):
         self.state_file = state_file
         self.current_device: Optional[Dict[str, Any]] = None
+        self.cached_devices: List[Dict[str, Any]] = []  # Cache of discovered devices
+        self.last_scan_time: Optional[float] = None
         self.lock = Lock()
         self._load_state()
 
@@ -98,3 +101,56 @@ class DeviceManager:
         """Check if a device is currently selected."""
         with self.lock:
             return self.current_device is not None
+
+    def update_device_cache(self, devices: List[Dict[str, Any]]):
+        """
+        Update the cache of discovered devices.
+
+        Args:
+            devices: List of device information dictionaries
+        """
+        with self.lock:
+            self.cached_devices = devices
+            self.last_scan_time = time.time()
+            logger.info(f"Device cache updated with {len(devices)} devices")
+
+    def get_cached_devices(self) -> List[Dict[str, Any]]:
+        """
+        Get cached devices.
+
+        Returns:
+            List of cached device information
+        """
+        with self.lock:
+            return self.cached_devices.copy()
+
+    def get_cache_age(self) -> Optional[float]:
+        """
+        Get age of device cache in seconds.
+
+        Returns:
+            Age in seconds or None if never scanned
+        """
+        with self.lock:
+            if self.last_scan_time is None:
+                return None
+            return time.time() - self.last_scan_time
+
+    def find_device_in_cache(self, device_id: str = None, host: str = None) -> Optional[Dict[str, Any]]:
+        """
+        Find device in cache by ID or host.
+
+        Args:
+            device_id: Device ID to search for
+            host: Host IP to search for
+
+        Returns:
+            Device info or None if not found
+        """
+        with self.lock:
+            for device in self.cached_devices:
+                if device_id and device.get('id') == device_id:
+                    return device.copy()
+                elif host and device.get('host') == host:
+                    return device.copy()
+            return None
