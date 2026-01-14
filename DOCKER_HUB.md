@@ -29,9 +29,6 @@ Or use docker-compose.yaml from the repository.
 Create `config.yaml`:
 
 ```yaml
-dlna:
-  host: "192.168.1.100"
-
 radio:
   default_url: "https://your-radio-stream.com"
 
@@ -44,24 +41,20 @@ streaming:
   mp3_bitrate: "128k"
 ```
 
+Device configuration is done via API.
+
 ## API Usage
 
+Open `http://localhost:5000` in browser for interactive dev console, or use CLI:
+
 ```bash
-# Scan for devices
-curl http://localhost:5000/scan
+# Get devices (force scan)
+curl http://localhost:5000/devices?force_scan=true
 
-# Get cached devices
-curl http://localhost:5000/devices
-
-# Select device
+# Select device by IP
 curl -X POST http://localhost:5000/devices/select \
   -H "Content-Type: application/json" \
-  -d '{"device_id": "your-device-id"}'
-
-# Or select by IP
-curl -X POST http://localhost:5000/devices/select \
-  -H "Content-Type: application/json" \
-  -d '{"host": "192.168.1.100"}'
+  -d '{"ip": "192.168.1.100"}'
 
 # Start playback
 curl -X POST http://localhost:5000/play?streamUrl=https://stream.url

@@ -35,21 +35,6 @@ class Config:
         return value
 
     @property
-    def dlna_host(self) -> str:
-        """Get DLNA device host (IP, hostname, or domain)."""
-        return self.get('dlna.host', '192.168.1.100')
-
-    @property
-    def dlna_port(self) -> int:
-        """Get DLNA device port."""
-        return self.get('dlna_advanced.port', 8080)
-
-    @property
-    def dlna_protocol(self) -> str:
-        """Get DLNA device protocol (http or https)."""
-        return self.get('dlna_advanced.protocol', 'http')
-
-    @property
     def default_stream_url(self) -> str:
         """Get default radio stream URL."""
         return self.get('radio.default_url', '')

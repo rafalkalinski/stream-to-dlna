@@ -23,12 +23,16 @@ cd stream-to-dlna
 # Edit config.yaml with your settings
 docker-compose up -d
 
-# Scan for devices
-curl http://localhost:5000/scan
+# Open dev console in browser
+open http://localhost:5000
+
+# Or use CLI:
+# Get devices
+curl http://localhost:5000/devices?force_scan=true
 
 # Select device
 curl -X POST http://localhost:5000/devices/select -H "Content-Type: application/json" \
-  -d '{"device_id": "your-device-id"}'
+  -d '{"ip": "192.168.1.100"}'
 
 # Play radio
 curl -X POST http://localhost:5000/play
@@ -39,9 +43,6 @@ curl -X POST http://localhost:5000/play
 Edit `config.yaml`:
 
 ```yaml
-dlna:
-  host: "192.168.1.100"
-
 radio:
   default_url: "https://stream.radio357.pl"
 
@@ -55,42 +56,30 @@ streaming:
   # public_url: "http://radio.yourdomain.local"
 ```
 
+Note: Device configuration is done via API (no manual IP configuration needed).
+
 ## API Reference
+
+### Development Console
+
+Open `http://localhost:5000` in browser for interactive API testing UI.
 
 ### Device Discovery
 
-**Scan network for DLNA devices**
+**Get devices**
 ```bash
-GET /scan?timeout=5&force=false&max_cache_age=7200
+GET /devices?force_scan=false
 ```
-Parameters:
-- `timeout`: Scan timeout in seconds (default: 5, max: 15)
-- `force`: Force new scan ignoring cache (default: false)
-- `max_cache_age`: Cache TTL in seconds (default: 7200 = 2 hours)
-
-Response:
-```json
-{
-  "devices": [{"id": "...", "friendly_name": "Device", "host": "192.168.1.100", ...}],
-  "count": 1,
-  "from_cache": true,
-  "cache_age_seconds": 120
-}
-```
-
-**Get cached devices**
-```bash
-GET /devices
-```
+Returns cached devices by default. Use `force_scan=true` to perform new network scan.
 
 **Select device**
 ```bash
 POST /devices/select
 Content-Type: application/json
 
-{"device_id": "uuid-1234"} or {"host": "192.168.1.100"}
+{"ip": "192.168.1.100"}
 ```
-Supports selection by device_id or IP address. Uses cache first, falls back to scan, then direct connection.
+Selects device by IP. Uses cache first, falls back to scan, then attempts direct connection.
 
 **Get current device**
 ```bash

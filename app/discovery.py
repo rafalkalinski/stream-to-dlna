@@ -278,7 +278,7 @@ class SSDPDiscovery:
                 'friendly_name': friendly_name,
                 'manufacturer': manufacturer,
                 'model_name': model_name,
-                'host': host,
+                'ip': host,
                 'port': port,
                 'location': location,
                 'control_url': control_url,

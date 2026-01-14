@@ -207,3 +207,32 @@ class AudioStreamer:
     def get_stream_url(self, host: str) -> str:
         """Get the URL to access the transcoded stream."""
         return f"http://{host}:{self.port}/stream.mp3"
+
+    def wait_until_ready(self, timeout: int = 10) -> bool:
+        """
+        Wait until HTTP server is ready to serve requests.
+
+        Args:
+            timeout: Maximum time to wait in seconds
+
+        Returns:
+            True if ready, False if timeout
+        """
+        import socket
+        import time
+
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            try:
+                # Try to connect to the HTTP server
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(1)
+                sock.connect(('127.0.0.1', self.port))
+                sock.close()
+                logger.info("Streaming server is ready")
+                return True
+            except (socket.error, ConnectionRefusedError):
+                time.sleep(0.2)
+
+        logger.warning(f"Streaming server not ready after {timeout}s")
+        return False

@@ -136,21 +136,18 @@ class DeviceManager:
                 return None
             return time.time() - self.last_scan_time
 
-    def find_device_in_cache(self, device_id: str = None, host: str = None) -> Optional[Dict[str, Any]]:
+    def find_device_in_cache(self, ip: str = None) -> Optional[Dict[str, Any]]:
         """
-        Find device in cache by ID or host.
+        Find device in cache by IP address.
 
         Args:
-            device_id: Device ID to search for
-            host: Host IP to search for
+            ip: IP address to search for
 
         Returns:
             Device info or None if not found
         """
         with self.lock:
             for device in self.cached_devices:
-                if device_id and device.get('id') == device_id:
-                    return device.copy()
-                elif host and device.get('host') == host:
+                if ip and device.get('ip') == ip:
                     return device.copy()
             return None
