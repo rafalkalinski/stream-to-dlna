@@ -50,17 +50,36 @@ class SSDPDiscovery:
             # Create UDP socket for multicast
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+            # Enable broadcasting - helps with multicast in Docker
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+
+            # Set multicast TTL (time-to-live)
+            sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 2)
+
+            # Bind to any address to receive responses
+            sock.bind(('0.0.0.0', 0))
+
             sock.settimeout(timeout)
 
-            # Send M-SEARCH request
-            sock.sendto(msg.encode('utf-8'), (SSDPDiscovery.SSDP_ADDR, SSDPDiscovery.SSDP_PORT))
-            logger.debug("M-SEARCH request sent")
+            # Send M-SEARCH request (send twice for reliability)
+            msg_encoded = msg.encode('utf-8')
+            for i in range(2):
+                sock.sendto(msg_encoded, (SSDPDiscovery.SSDP_ADDR, SSDPDiscovery.SSDP_PORT))
+                logger.debug(f"M-SEARCH request sent (attempt {i+1})")
+                if i == 0:
+                    import time
+                    time.sleep(0.1)  # Small delay between sends
 
             # Collect responses
+            response_count = 0
             while True:
                 try:
                     data, addr = sock.recvfrom(65507)
                     response = data.decode('utf-8', errors='ignore')
+                    response_count += 1
+
+                    logger.debug(f"Received response #{response_count} from {addr[0]}")
 
                     # Parse response headers
                     headers = SSDPDiscovery._parse_ssdp_response(response)
@@ -68,7 +87,7 @@ class SSDPDiscovery:
 
                     if location and location not in seen_locations:
                         seen_locations.add(location)
-                        logger.debug(f"Found device at {location}")
+                        logger.info(f"Found device at {location}")
 
                         # Fetch device description
                         device_info = SSDPDiscovery._fetch_device_info(location)
@@ -78,6 +97,7 @@ class SSDPDiscovery:
 
                 except socket.timeout:
                     # Expected - no more responses
+                    logger.debug(f"Discovery timeout reached. Received {response_count} total responses.")
                     break
                 except Exception as e:
                     logger.debug(f"Error receiving SSDP response: {e}")
@@ -86,7 +106,7 @@ class SSDPDiscovery:
             sock.close()
 
         except Exception as e:
-            logger.error(f"SSDP discovery failed: {e}")
+            logger.error(f"SSDP discovery failed: {e}", exc_info=True)
 
         logger.info(f"Discovery complete. Found {len(devices)} device(s)")
         return devices
