@@ -205,8 +205,8 @@ def device_select():
     global dlna_client
 
     try:
-        # Get IP from query parameter or JSON body
-        ip = request.args.get('ip') or (request.json.get('ip') if request.is_json else None)
+        # Get IP from query parameter only
+        ip = request.args.get('ip')
 
         if not ip:
             return jsonify({

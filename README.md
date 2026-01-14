@@ -31,8 +31,7 @@ open http://localhost:5000
 curl http://localhost:5000/devices?force_scan=true
 
 # Select device
-curl -X POST http://localhost:5000/devices/select -H "Content-Type: application/json" \
-  -d '{"ip": "192.168.1.100"}'
+curl -X POST "http://localhost:5000/devices/select?ip=192.168.1.100"
 
 # Play radio
 curl -X POST http://localhost:5000/play
@@ -74,10 +73,7 @@ Returns cached devices by default. Use `force_scan=true` to perform new network 
 
 **Select device**
 ```bash
-POST /devices/select
-Content-Type: application/json
-
-{"ip": "192.168.1.100"}
+POST /devices/select?ip=192.168.1.100
 ```
 Selects device by IP. Uses cache first, falls back to scan, then attempts direct connection.
 
