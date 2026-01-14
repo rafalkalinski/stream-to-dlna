@@ -140,6 +140,49 @@ class SSDPDiscovery:
         return devices
 
     @staticmethod
+    def try_direct_connection(host: str, timeout: int = 3) -> Optional[Dict[str, str]]:
+        """
+        Try to connect directly to a device by IP/hostname.
+        Attempts common device description XML paths.
+
+        Args:
+            host: IP address or hostname
+            timeout: Timeout for attempts
+
+        Returns:
+            Device information dictionary or None if not found
+        """
+        # Common device description paths
+        common_paths = [
+            '/description.xml',
+            '/dmr',
+            '/rootDesc.xml',
+            '/upnpd/description.xml',
+            '/AVTransport/ctrl'  # Some devices
+        ]
+
+        # Common ports for DLNA devices
+        common_ports = [8080, 9197, 49152, 49153, 49154, 80]
+
+        logger.info(f"Attempting direct connection to {host}")
+
+        for port in common_ports:
+            for path in common_paths:
+                location = f"http://{host}:{port}{path}"
+                try:
+                    response = requests.get(location, timeout=timeout)
+                    if response.status_code == 200 and 'xml' in response.headers.get('Content-Type', '').lower():
+                        logger.info(f"Found device at {location}")
+                        device_info = SSDPDiscovery._fetch_device_info(location)
+                        if device_info:
+                            return device_info
+                except:
+                    continue
+
+        logger.warning(f"Could not connect to device at {host}")
+        return None
+
+    @staticmethod
     def _parse_ssdp_response(response: str) -> Dict[str, str]:
         """Parse SSDP response headers."""
         headers = {}
@@ -206,6 +249,24 @@ class SSDPDiscovery:
 
             # Find AVTransport service control URL
             control_url = SSDPDiscovery._find_av_transport_control_url(device, ns, parsed_url.scheme, host, port)
+
+            # Filter out devices without AVTransport (MediaServers, not MediaRenderers)
+            # Only keep devices that can actually play media
+            if not control_url or control_url.endswith('/AVTransport/ctrl'):
+                # If control_url is the fallback default, verify AVTransport actually exists
+                services = device.findall('.//upnp:service', ns) or device.findall('.//service')
+                has_av_transport = False
+                for service in services:
+                    service_type = service.find('.//upnp:serviceType', ns)
+                    if service_type is None:
+                        service_type = service.find('.//serviceType')
+                    if service_type is not None and 'AVTransport' in service_type.text:
+                        has_av_transport = True
+                        break
+
+                if not has_av_transport:
+                    logger.debug(f"Skipping device {friendly_name} - no AVTransport service (likely MediaServer)")
+                    return None
 
             # Find ConnectionManager service control URL (for GetProtocolInfo)
             connection_manager_url = SSDPDiscovery._find_connection_manager_control_url(device, ns, parsed_url.scheme, host, port)

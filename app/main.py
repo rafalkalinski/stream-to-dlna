@@ -112,6 +112,17 @@ def _detect_stream_format(stream_url: str) -> Optional[str]:
     return None
 
 
+def _background_device_scan():
+    """Background thread to scan for devices on startup."""
+    try:
+        logger.info("Starting background device scan")
+        devices = SSDPDiscovery.discover(timeout=10)
+        device_manager.update_device_cache(devices)
+        logger.info(f"Background scan complete. Found {len(devices)} devices")
+    except Exception as e:
+        logger.error(f"Background device scan failed: {e}", exc_info=True)
+
+
 def initialize():
     """Initialize application components."""
     global config, dlna_client, device_manager
@@ -136,6 +147,11 @@ def initialize():
         logger.info(f"Restoring previously selected device: {saved_device.get('friendly_name', 'Unknown')}")
         dlna_client = _create_dlna_client_from_device(saved_device)
 
+    # Start background device scan
+    import threading
+    scan_thread = threading.Thread(target=_background_device_scan, daemon=True)
+    scan_thread.start()
+
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -148,17 +164,42 @@ def health():
 
 @app.route('/scan', methods=['GET'])
 def scan():
-    """Scan network for DLNA devices."""
+    """
+    Scan network for DLNA devices.
+
+    Query parameters:
+    - timeout: Scan timeout in seconds (default: 5, max: 15)
+    - force: Force new scan even if cache is fresh (default: false)
+    - max_cache_age: Max cache age in seconds to use cached results (default: 300 = 5 minutes)
+    """
     try:
         timeout = request.args.get('timeout', default=5, type=int)
         timeout = min(timeout, 15)  # Max 15 seconds
 
-        logger.info(f"Starting DLNA device scan (timeout: {timeout}s)")
-        devices = SSDPDiscovery.discover(timeout=timeout)
+        force = request.args.get('force', default='false', type=str).lower() == 'true'
+        max_cache_age = request.args.get('max_cache_age', default=300, type=int)  # 5 minutes
+
+        cache_age = device_manager.get_cache_age()
+        use_cache = (not force and
+                     cache_age is not None and
+                     cache_age < max_cache_age)
+
+        if use_cache:
+            logger.info(f"Using cached device list (age: {cache_age:.1f}s)")
+            devices = device_manager.get_cached_devices()
+            from_cache = True
+        else:
+            logger.info(f"Starting DLNA device scan (timeout: {timeout}s)")
+            devices = SSDPDiscovery.discover(timeout=timeout)
+            device_manager.update_device_cache(devices)
+            from_cache = False
+            cache_age = 0
 
         return jsonify({
             'devices': devices,
-            'count': len(devices)
+            'count': len(devices),
+            'from_cache': from_cache,
+            'cache_age_seconds': cache_age if from_cache else 0
         }), 200
 
     except Exception as e:
@@ -199,11 +240,18 @@ def device_select():
                 elif host and current.get('host') == host:
                     device_info = current
 
+            # Try device cache first (fast)
+            if not device_info:
+                device_info = device_manager.find_device_in_cache(device_id=device_id, host=host)
+                if device_info:
+                    logger.info(f"Found device in cache: {device_info.get('friendly_name', 'Unknown')}")
+
             if not device_info:
                 # Need to do a quick scan to find the device
                 identifier = device_id or host
                 logger.info(f"Scanning for device: {identifier}")
                 devices = SSDPDiscovery.discover(timeout=5)
+                device_manager.update_device_cache(devices)  # Update cache with fresh results
                 for device in devices:
                     if device_id and device.get('id') == device_id:
                         device_info = device
@@ -211,6 +259,11 @@ def device_select():
                     elif host and device.get('host') == host:
                         device_info = device
                         break
+
+                # If still not found and user provided a host, try direct connection
+                if not device_info and host:
+                    logger.info(f"Device not found in scan, trying direct connection to {host}")
+                    device_info = SSDPDiscovery.try_direct_connection(host)
 
         if not device_info:
             identifier = device_id or host
