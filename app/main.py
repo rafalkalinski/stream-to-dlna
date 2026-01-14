@@ -456,9 +456,22 @@ def status():
         if dlna_client:
             dlna_info = dlna_client.get_transport_info()
 
+        # Get current device info
+        current_device = device_manager.get_current_device()
+        device_info = None
+        if current_device:
+            device_info = {
+                'id': current_device.get('id'),
+                'friendly_name': current_device.get('friendly_name'),
+                'manufacturer': current_device.get('manufacturer'),
+                'model_name': current_device.get('model_name'),
+                'host': current_device.get('host')
+            }
+
         return jsonify({
             'streaming': is_streaming,
-            'dlna': dlna_info
+            'dlna': dlna_info,
+            'current_device': device_info
         }), 200
 
     except Exception as e:
