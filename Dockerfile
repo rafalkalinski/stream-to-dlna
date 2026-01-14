@@ -1,5 +1,9 @@
 # Build stage
-FROM python:3.14-alpine AS builder
+FROM python:3.14-alpine3.21 AS builder
+
+# Use Alpine Edge repositories for latest packages
+RUN echo "https://dl-cdn.alpinelinux.org/alpine/edge/main" > /etc/apk/repositories && \
+    echo "https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories
 
 # Install build dependencies
 RUN apk add --no-cache gcc musl-dev linux-headers
@@ -12,9 +16,13 @@ COPY requirements.txt .
 RUN pip install --user -r requirements.txt
 
 # Runtime stage
-FROM python:3.14-alpine
+FROM python:3.14-alpine3.21
 
-# Install FFmpeg (runtime only)
+# Use Alpine Edge repositories for latest packages
+RUN echo "https://dl-cdn.alpinelinux.org/alpine/edge/main" > /etc/apk/repositories && \
+    echo "https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories
+
+# Install FFmpeg (runtime only) - should get latest version from Edge
 RUN apk add --no-cache ffmpeg
 
 # Set working directory
