@@ -4,7 +4,7 @@ import logging
 import sys
 import socket
 import requests
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from app.config import Config
 from app.dlna_client import DLNAClient
 from app.streamer import AudioStreamer, PassthroughStreamer
@@ -83,7 +83,7 @@ def get_local_ip() -> str:
 def _create_dlna_client_from_device(device_info: dict) -> DLNAClient:
     """Create a DLNAClient instance from device info."""
     return DLNAClient(
-        device_host=device_info.get('host', ''),
+        device_host=device_info.get('ip', ''),
         device_port=device_info.get('port', 8080),
         protocol='http',  # TODO: detect from control_url if needed
         control_url=device_info.get('control_url'),
@@ -133,24 +133,24 @@ def initialize():
     # Initialize device manager
     device_manager = DeviceManager()
 
-    # Initialize default DLNA client from config (fallback)
-    dlna_client = DLNAClient(
-        device_host=config.dlna_host,
-        device_port=config.dlna_port,
-        protocol=config.dlna_protocol
-    )
-    logger.info(f"Default DLNA client initialized for device at {config.dlna_protocol}://{config.dlna_host}:{config.dlna_port}")
-
-    # If a device was previously selected, use that instead
+    # Restore previously selected device if exists
     saved_device = device_manager.get_current_device()
     if saved_device:
         logger.info(f"Restoring previously selected device: {saved_device.get('friendly_name', 'Unknown')}")
         dlna_client = _create_dlna_client_from_device(saved_device)
+    else:
+        logger.info("No device selected. Use /devices/select to choose a device.")
 
     # Start background device scan
     import threading
     scan_thread = threading.Thread(target=_background_device_scan, daemon=True)
     scan_thread.start()
+
+
+@app.route('/', methods=['GET'])
+def index():
+    """Development console UI."""
+    return render_template('dev.html')
 
 
 @app.route('/health', methods=['GET'])
@@ -162,59 +162,29 @@ def health():
     }), 200
 
 
-@app.route('/scan', methods=['GET'])
-def scan():
-    """
-    Scan network for DLNA devices.
-
-    Query parameters:
-    - timeout: Scan timeout in seconds (default: 5, max: 15)
-    - force: Force new scan even if cache is fresh (default: false)
-    - max_cache_age: Max cache age in seconds to use cached results (default: 7200 = 2 hours)
-    """
-    try:
-        timeout = request.args.get('timeout', default=5, type=int)
-        timeout = min(timeout, 15)  # Max 15 seconds
-
-        force = request.args.get('force', default='false', type=str).lower() == 'true'
-        max_cache_age = request.args.get('max_cache_age', default=7200, type=int)  # 2 hours
-
-        cache_age = device_manager.get_cache_age()
-        use_cache = (not force and
-                     cache_age is not None and
-                     cache_age < max_cache_age)
-
-        if use_cache:
-            logger.info(f"Using cached device list (age: {cache_age:.1f}s)")
-            devices = device_manager.get_cached_devices()
-            from_cache = True
-        else:
-            logger.info(f"Starting DLNA device scan (timeout: {timeout}s)")
-            devices = SSDPDiscovery.discover(timeout=timeout)
-            device_manager.update_device_cache(devices)
-            from_cache = False
-            cache_age = 0
-
-        return jsonify({
-            'devices': devices,
-            'count': len(devices),
-            'from_cache': from_cache,
-            'cache_age_seconds': cache_age if from_cache else 0
-        }), 200
-
-    except Exception as e:
-        logger.error(f"Error during device scan: {e}", exc_info=True)
-        return jsonify({
-            'error': str(e)
-        }), 500
-
-
 @app.route('/devices', methods=['GET'])
 def devices():
-    """Get list of discovered devices from cache."""
+    """
+    Get list of discovered DLNA devices.
+    Returns cached results by default, or performs new scan with force_scan=true.
+
+    Query parameters:
+    - force_scan: Force new scan (default: false)
+    - timeout: Scan timeout in seconds when force_scan=true (default: 5, max: 15)
+    """
     try:
-        cache_age = device_manager.get_cache_age()
-        devices_list = device_manager.get_cached_devices()
+        force_scan = request.args.get('force_scan', default='false', type=str).lower() == 'true'
+
+        if force_scan:
+            timeout = request.args.get('timeout', default=5, type=int)
+            timeout = min(timeout, 15)
+            logger.info(f"Force scan requested (timeout: {timeout}s)")
+            devices_list = SSDPDiscovery.discover(timeout=timeout)
+            device_manager.update_device_cache(devices_list)
+            cache_age = 0
+        else:
+            cache_age = device_manager.get_cache_age()
+            devices_list = device_manager.get_cached_devices()
 
         return jsonify({
             'devices': devices_list,
@@ -231,64 +201,49 @@ def devices():
 
 @app.route('/devices/select', methods=['POST'])
 def device_select():
-    """Select a DLNA device and detect its capabilities. Can select by device_id, host, or hostname."""
+    """Select a DLNA device by IP address and detect its capabilities."""
     global dlna_client
 
     try:
-        # Get device identifier from query parameter or JSON body
-        device_id = request.args.get('device_id') or (request.json.get('device_id') if request.is_json else None)
-        host = request.args.get('host') or (request.json.get('host') if request.is_json else None)
+        # Get IP from query parameter or JSON body
+        ip = request.args.get('ip') or (request.json.get('ip') if request.is_json else None)
 
-        if not device_id and not host:
+        if not ip:
             return jsonify({
-                'error': 'Either device_id or host parameter is required'
+                'error': 'ip parameter is required'
             }), 400
 
-        # Option 1: If device_id is provided directly as device info (from /scan)
-        # First, try to find it in a recent scan or accept full device info in body
         device_info = None
 
-        if request.is_json and 'device_info' in request.json:
-            # Full device info provided
-            device_info = request.json['device_info']
-        else:
-            # Try to get from current device if ID or host matches (edge case)
-            current = device_manager.get_current_device()
-            if current:
-                if device_id and current.get('id') == device_id:
-                    device_info = current
-                elif host and current.get('host') == host:
-                    device_info = current
+        # Try to get from current device if IP matches (edge case)
+        current = device_manager.get_current_device()
+        if current and current.get('ip') == ip:
+            device_info = current
 
-            # Try device cache first (fast)
-            if not device_info:
-                device_info = device_manager.find_device_in_cache(device_id=device_id, host=host)
-                if device_info:
-                    logger.info(f"Found device in cache: {device_info.get('friendly_name', 'Unknown')}")
-
-            if not device_info:
-                # Need to do a quick scan to find the device
-                identifier = device_id or host
-                logger.info(f"Scanning for device: {identifier}")
-                devices = SSDPDiscovery.discover(timeout=5)
-                device_manager.update_device_cache(devices)  # Update cache with fresh results
-                for device in devices:
-                    if device_id and device.get('id') == device_id:
-                        device_info = device
-                        break
-                    elif host and device.get('host') == host:
-                        device_info = device
-                        break
-
-                # If still not found and user provided a host, try direct connection
-                if not device_info and host:
-                    logger.info(f"Device not found in scan, trying direct connection to {host}")
-                    device_info = SSDPDiscovery.try_direct_connection(host)
+        # Try device cache first (fast)
+        if not device_info:
+            device_info = device_manager.find_device_in_cache(ip=ip)
+            if device_info:
+                logger.info(f"Found device in cache: {device_info.get('friendly_name', 'Unknown')}")
 
         if not device_info:
-            identifier = device_id or host
+            # Scan for device
+            logger.info(f"Scanning for device: {ip}")
+            devices = SSDPDiscovery.discover(timeout=5)
+            device_manager.update_device_cache(devices)
+            for device in devices:
+                if device.get('ip') == ip:
+                    device_info = device
+                    break
+
+            # If still not found, try direct connection
+            if not device_info:
+                logger.info(f"Device not found in scan, trying direct connection to {ip}")
+                device_info = SSDPDiscovery.try_direct_connection(ip)
+
+        if not device_info:
             return jsonify({
-                'error': f'Device {identifier} not found'
+                'error': f'Device {ip} not found'
             }), 404
 
         # Create DLNA client for this device
@@ -312,7 +267,7 @@ def device_select():
                 'friendly_name': device_info.get('friendly_name'),
                 'manufacturer': device_info.get('manufacturer'),
                 'model_name': device_info.get('model_name'),
-                'host': device_info.get('host'),
+                'ip': device_info.get('ip'),
                 'capabilities': capabilities
             }
         }), 200
@@ -342,7 +297,7 @@ def device_current():
                 'friendly_name': device.get('friendly_name'),
                 'manufacturer': device.get('manufacturer'),
                 'model_name': device.get('model_name'),
-                'host': device.get('host'),
+                'ip': device.get('ip'),
                 'capabilities': device.get('capabilities', {})
             }
         }), 200
@@ -445,6 +400,13 @@ def play():
             )
             streamer.start()
 
+            # Wait for HTTP server to be ready before sending to DLNA device
+            if not streamer.wait_until_ready(timeout=10):
+                streamer.stop()
+                return jsonify({
+                    'error': 'Streaming server failed to start'
+                }), 500
+
             # Get transcoded stream URL
             if config.stream_public_url:
                 playback_url = f"{config.stream_public_url}/stream.mp3"
@@ -534,11 +496,8 @@ def status():
         device_info = None
         if current_device:
             device_info = {
-                'id': current_device.get('id'),
                 'friendly_name': current_device.get('friendly_name'),
-                'manufacturer': current_device.get('manufacturer'),
-                'model_name': current_device.get('model_name'),
-                'host': current_device.get('host')
+                'ip': current_device.get('ip')
             }
 
         return jsonify({

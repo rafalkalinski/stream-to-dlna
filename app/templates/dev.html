@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DLNA Radio Streamer - Dev Console</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Monaco', 'Courier New', monospace;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        h1 { margin-bottom: 20px; color: #4ec9b0; font-size: 24px; }
+        h2 { margin: 20px 0 10px 0; color: #569cd6; font-size: 18px; }
+        .api-section {
+            background: #252526;
+            border: 1px solid #3e3e42;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .endpoint {
+            color: #ce9178;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        .method {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+        .get { background: #4ec9b0; color: #1e1e1e; }
+        .post { background: #569cd6; color: #1e1e1e; }
+        .description {
+            color: #9cdcfe;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        .form-group {
+            margin: 10px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #dcdcaa;
+            font-size: 13px;
+        }
+        input[type="text"], input[type="number"], textarea {
+            width: 100%;
+            padding: 8px;
+            background: #3c3c3c;
+            border: 1px solid #555;
+            border-radius: 3px;
+            color: #d4d4d4;
+            font-family: inherit;
+            font-size: 13px;
+        }
+        button {
+            background: #0e639c;
+            color: #fff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 13px;
+            margin-right: 5px;
+        }
+        button:hover { background: #1177bb; }
+        #output {
+            background: #1e1e1e;
+            border: 1px solid #3e3e42;
+            border-radius: 4px;
+            padding: 15px;
+            font-size: 13px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 600px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        .output-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .clear-btn {
+            background: #3e3e42;
+            padding: 4px 12px;
+            font-size: 12px;
+        }
+        .clear-btn:hover { background: #505050; }
+        .json { color: #ce9178; }
+        .timestamp { color: #608b4e; }
+        .error { color: #f48771; }
+        .success { color: #4ec9b0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>DLNA Radio Streamer - Development Console</h1>
+
+        <h2>Device Discovery</h2>
+
+        <div class="api-section">
+            <div class="endpoint">
+                <span class="method get">GET</span> /devices
+            </div>
+            <div class="description">Get cached list of discovered devices</div>
+            <div class="form-group">
+                <label>Force Scan (true/false)</label>
+                <input type="text" id="devices_force_scan" value="false" placeholder="false">
+            </div>
+            <button onclick="getDevices()">Get Devices</button>
+        </div>
+
+        <div class="api-section">
+            <div class="endpoint">
+                <span class="method post">POST</span> /devices/select
+            </div>
+            <div class="description">Select device by IP address</div>
+            <div class="form-group">
+                <label>Device IP Address</label>
+                <input type="text" id="select_ip" placeholder="192.168.1.100">
+            </div>
+            <button onclick="selectDevice()">Select Device</button>
+        </div>
+
+        <div class="api-section">
+            <div class="endpoint">
+                <span class="method get">GET</span> /devices/current
+            </div>
+            <div class="description">Get currently selected device</div>
+            <button onclick="getCurrentDevice()">Get Current Device</button>
+        </div>
+
+        <h2>Playback Control</h2>
+
+        <div class="api-section">
+            <div class="endpoint">
+                <span class="method post">POST</span> /play
+            </div>
+            <div class="description">Start playback with smart transcoding</div>
+            <div class="form-group">
+                <label>Stream URL (optional, uses default if empty)</label>
+                <input type="text" id="play_url" placeholder="http://stream-url.com/radio">
+            </div>
+            <button onclick="play()">Play</button>
+        </div>
+
+        <div class="api-section">
+            <div class="endpoint">
+                <span class="method post">POST</span> /stop
+            </div>
+            <div class="description">Stop playback</div>
+            <button onclick="stop()">Stop</button>
+        </div>
+
+        <h2>Status</h2>
+
+        <div class="api-section">
+            <div class="endpoint">
+                <span class="method get">GET</span> /status
+            </div>
+            <div class="description">Get current playback and device status</div>
+            <button onclick="getStatus()">Get Status</button>
+        </div>
+
+        <div class="api-section">
+            <div class="endpoint">
+                <span class="method get">GET</span> /health
+            </div>
+            <div class="description">Health check</div>
+            <button onclick="getHealth()">Health Check</button>
+        </div>
+
+        <div class="output-header">
+            <h2 style="margin: 0;">Output</h2>
+            <button class="clear-btn" onclick="clearOutput()">Clear</button>
+        </div>
+        <div id="output">Waiting for requests...</div>
+    </div>
+
+    <script>
+        const output = document.getElementById('output');
+
+        function clearOutput() {
+            output.textContent = 'Output cleared.';
+        }
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const classes = { error: 'error', success: 'success', json: 'json' };
+            const className = classes[type] || '';
+            const line = `<span class="timestamp">[${timestamp}]</span> <span class="${className}">${escapeHtml(message)}</span>`;
+            output.innerHTML += line + '\n';
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function escapeHtml(text) {
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return text.toString().replace(/[&<>"']/g, m => map[m]);
+        }
+
+        async function makeRequest(method, endpoint, body = null) {
+            try {
+                log(`${method} ${endpoint}`, 'info');
+
+                const options = {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' }
+                };
+
+                if (body) {
+                    options.body = JSON.stringify(body);
+                    log(`Request body: ${JSON.stringify(body)}`, 'json');
+                }
+
+                const response = await fetch(endpoint, options);
+                const data = await response.json();
+
+                if (response.ok) {
+                    log(`Response (${response.status}): ${JSON.stringify(data, null, 2)}`, 'success');
+                } else {
+                    log(`Error (${response.status}): ${JSON.stringify(data, null, 2)}`, 'error');
+                }
+            } catch (error) {
+                log(`Network error: ${error.message}`, 'error');
+            }
+        }
+
+        function getDevices() {
+            const force = document.getElementById('devices_force_scan').value;
+            const endpoint = `/devices?force_scan=${encodeURIComponent(force)}`;
+            makeRequest('GET', endpoint);
+        }
+
+        function selectDevice() {
+            const ip = document.getElementById('select_ip').value.trim();
+            if (!ip) {
+                log('Error: IP address is required', 'error');
+                return;
+            }
+            makeRequest('POST', '/devices/select', { ip: ip });
+        }
+
+        function getCurrentDevice() {
+            makeRequest('GET', '/devices/current');
+        }
+
+        function play() {
+            const url = document.getElementById('play_url').value.trim();
+            const endpoint = url ? `/play?streamUrl=${encodeURIComponent(url)}` : '/play';
+            makeRequest('POST', endpoint);
+        }
+
+        function stop() {
+            makeRequest('POST', '/stop');
+        }
+
+        function getStatus() {
+            makeRequest('GET', '/status');
+        }
+
+        function getHealth() {
+            makeRequest('GET', '/health');
+        }
+    </script>
+</body>
+</html>
