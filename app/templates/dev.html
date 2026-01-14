@@ -298,9 +298,11 @@
             const line = `<span class="timestamp">[${timestamp}]</span> <span class="${className}">${escapeHtml(message)}</span>\n`;
             output.insertAdjacentHTML('beforeend', line);
 
-            // Auto-scroll to bottom
+            // Auto-scroll to bottom - double rAF ensures layout is recalculated
             requestAnimationFrame(() => {
-                output.scrollTop = output.scrollHeight;
+                requestAnimationFrame(() => {
+                    output.scrollTop = output.scrollHeight;
+                });
             });
         }
 
