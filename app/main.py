@@ -210,7 +210,7 @@ def device_select():
 
         if not ip:
             return jsonify({
-                'error': 'ip parameter is required'
+                'message': 'ip parameter is required'
             }), 400
 
         device_info = None
@@ -320,7 +320,7 @@ def play():
 
         if not stream_url:
             return jsonify({
-                'error': 'No stream URL provided and no default configured'
+                'message': 'No stream URL provided and no default configured'
             }), 400
 
         # Handle device_id override or use current device
@@ -357,7 +357,7 @@ def play():
 
             if not device_info:
                 return jsonify({
-                    'error': 'No device selected. Please use /device/select first.'
+                    'message': 'No device selected. Please use /device/select first.'
                 }), 400
 
             # Create client from current device (with capabilities loaded from state)
