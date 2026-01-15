@@ -211,9 +211,26 @@ def _detect_stream_format(stream_url: str) -> Optional[str]:
 def _background_device_scan():
     """Background thread to scan for devices on startup."""
     global device_manager
+
+    def on_device_found(device_info):
+        """Callback to add device to cache immediately when found."""
+        try:
+            # Get current cache
+            cached = device_manager.get_cached_devices()
+
+            # Add new device if not already in cache
+            device_exists = any(d.get('id') == device_info.get('id') for d in cached)
+            if not device_exists:
+                cached.append(device_info)
+                device_manager.update_device_cache(cached)
+                logger.info(f"Added device to cache: {device_info.get('friendly_name', 'Unknown')}")
+        except Exception as e:
+            logger.error(f"Failed to add device to cache: {e}")
+
     try:
         logger.info("Starting background device scan")
-        devices = SSDPDiscovery.discover(timeout=10)
+        devices = SSDPDiscovery.discover(timeout=10, device_callback=on_device_found)
+        # Final update with all devices (in case callback failed for some)
         if devices:
             device_manager.update_device_cache(devices)
             logger.info(f"Background scan complete. Found {len(devices)} devices")
