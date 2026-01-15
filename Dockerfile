@@ -16,8 +16,8 @@ RUN pip install -r requirements.txt
 # Copy application code
 COPY app/ ./app/
 
-# Copy default config (will be overridden by volume mount)
-COPY config.yaml .
+# Copy example config as default (will be overridden by volume mount)
+COPY config.example.yaml ./config.yaml
 
 # Expose API port and streaming port
 EXPOSE 5000 8080
