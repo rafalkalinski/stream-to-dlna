@@ -79,23 +79,6 @@ class DeviceManager:
             self._load_state()
             return self.current_device.copy() if self.current_device else None
 
-    def get_device_by_id(self, device_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Get device by ID (currently just returns current if ID matches).
-
-        Args:
-            device_id: Device ID to look up
-
-        Returns:
-            Device information or None if not found
-        """
-        with self.lock:
-            # Always reload from disk to support multi-worker environments
-            self._load_state()
-            if self.current_device and self.current_device.get('id') == device_id:
-                return self.current_device.copy()
-            return None
-
     def clear_device(self):
         """Clear the currently selected device."""
         with self.lock:

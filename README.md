@@ -145,28 +145,11 @@ Mode is automatically selected based on format detection and device capabilities
 
 Only MediaRenderer devices (with AVTransport service) are discovered. MediaServer devices like NAS are filtered out.
 
-## Docker Networking
-
-For SSDP multicast discovery to work, use either:
-
-**Option 1: Host network**
-```yaml
-network_mode: host
-```
-
-**Option 2: Macvlan network** (recommended for production)
-```yaml
-networks:
-  your-macvlan:  # IP from DHCP or static
-  your-bridge:   # For reverse proxy access
-```
-
 ## Troubleshooting
 
 **Device not found in scan:**
-- Try longer timeout: `/scan?timeout=10`
-- Use direct connection: `POST /devices/select` with `{"host": "192.168.1.100"}`
-- Verify multicast works: check Docker network mode
+- Try longer timeout: `/devices?force_scan=true&timeout=10`
+- Use direct connection: `POST /devices/select?ip=192.168.1.100`
 
 **Playback fails:**
 - Check logs: `docker logs stream-to-dlna`
