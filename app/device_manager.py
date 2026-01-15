@@ -28,6 +28,8 @@ class DeviceManager:
                 with open(self.state_file, 'r') as f:
                     data = json.load(f)
                     self.current_device = data.get('current_device')
+                    self.cached_devices = data.get('cached_devices', [])
+                    self.last_scan_time = data.get('last_scan_time')
                     if self.current_device:
                         logger.info(f"Loaded saved device: {self.current_device.get('friendly_name', 'Unknown')}")
             else:
@@ -35,12 +37,16 @@ class DeviceManager:
         except Exception as e:
             logger.warning(f"Failed to load state file: {e}")
             self.current_device = None
+            self.cached_devices = []
+            self.last_scan_time = None
 
     def _save_state(self):
         """Save device state to JSON file."""
         try:
             data = {
-                'current_device': self.current_device
+                'current_device': self.current_device,
+                'cached_devices': self.cached_devices,
+                'last_scan_time': self.last_scan_time
             }
             with open(self.state_file, 'w') as f:
                 json.dump(data, f, indent=2)
@@ -112,6 +118,7 @@ class DeviceManager:
         with self.lock:
             self.cached_devices = devices
             self.last_scan_time = time.time()
+            self._save_state()
             logger.info(f"Device cache updated with {len(devices)} devices")
 
     def get_cached_devices(self) -> List[Dict[str, Any]]:
@@ -122,6 +129,8 @@ class DeviceManager:
             List of cached device information
         """
         with self.lock:
+            # Always reload from disk to support multi-worker environments (Gunicorn)
+            self._load_state()
             return self.cached_devices.copy()
 
     def get_cache_age(self) -> Optional[float]:
@@ -132,6 +141,8 @@ class DeviceManager:
             Age in seconds or None if never scanned
         """
         with self.lock:
+            # Always reload from disk to support multi-worker environments (Gunicorn)
+            self._load_state()
             if self.last_scan_time is None:
                 return None
             return time.time() - self.last_scan_time
@@ -147,6 +158,8 @@ class DeviceManager:
             Device info or None if not found
         """
         with self.lock:
+            # Always reload from disk to support multi-worker environments (Gunicorn)
+            self._load_state()
             for device in self.cached_devices:
                 if ip and device.get('ip') == ip:
                     return device.copy()
