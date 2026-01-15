@@ -21,12 +21,13 @@ class SSDPDiscovery:
     SSDP_ST = "urn:schemas-upnp-org:device:MediaRenderer:1"
 
     @staticmethod
-    def discover(timeout: int = 5) -> List[Dict[str, str]]:
+    def discover(timeout: int = 5, device_callback=None) -> List[Dict[str, str]]:
         """
         Discover DLNA MediaRenderer devices on the local network.
 
         Args:
             timeout: How long to wait for responses (seconds)
+            device_callback: Optional callback(device_info) called for each found device
 
         Returns:
             List of discovered devices with their information
@@ -128,6 +129,12 @@ class SSDPDiscovery:
                             if device_info:
                                 devices.append(device_info)
                                 logger.info(f"Discovered device: {device_info.get('friendly_name', 'Unknown')}")
+                                # Call callback immediately when device is found
+                                if device_callback:
+                                    try:
+                                        device_callback(device_info)
+                                    except Exception as e:
+                                        logger.error(f"Device callback failed: {e}")
                         except TimeoutError:
                             logger.debug(f"Timeout fetching device info from {location}")
                         except Exception as e:
