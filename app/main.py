@@ -319,7 +319,7 @@ def device_select():
 
         if not device_info:
             return jsonify({
-                'error': f'Device {ip} not found'
+                'message': f'Device {ip} not found'
             }), 404
 
         # Create DLNA client for this device
@@ -425,7 +425,7 @@ def play():
 
             if not device_info:
                 return jsonify({
-                    'error': f'Device {device_id} not found'
+                    'message': f'Device {device_id} not found'
                 }), 404
 
             # Create temporary client for this device
