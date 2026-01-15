@@ -157,6 +157,7 @@
             display: flex;
             gap: 15px;
             margin-top: 5px;
+            align-items: center;
         }
         .radio-group label {
             display: inline-flex;
@@ -167,6 +168,26 @@
         .radio-group input[type="radio"] {
             margin-right: 5px;
             cursor: pointer;
+        }
+        .timeout-inline {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: 20px;
+        }
+        .timeout-inline input[type="number"] {
+            width: 80px;
+            padding: 4px 8px;
+        }
+        .timeout-inline label {
+            margin-bottom: 0;
+            font-size: 13px;
+        }
+        #timeout-container {
+            display: none;
+        }
+        #timeout-container.visible {
+            display: inline-flex;
         }
         .output-container {
             flex: 1;
@@ -244,16 +265,16 @@
                     <label>Force Scan</label>
                     <div class="radio-group">
                         <label>
-                            <input type="radio" name="force_scan" value="false" checked> false
+                            <input type="radio" name="force_scan" value="false" checked onchange="toggleTimeout()"> false
                         </label>
                         <label>
-                            <input type="radio" name="force_scan" value="true"> true
+                            <input type="radio" name="force_scan" value="true" onchange="toggleTimeout()"> true
                         </label>
+                        <div id="timeout-container" class="timeout-inline">
+                            <label>Timeout (seconds):</label>
+                            <input type="number" id="scan_timeout" value="5" min="1" max="15">
+                        </div>
                     </div>
-                </div>
-                <div class="form-group">
-                    <label>Timeout (seconds, only used when force_scan=true)</label>
-                    <input type="number" id="scan_timeout" value="5" min="1" max="15" placeholder="5">
                 </div>
                 <button id="btn-get-devices" onclick="getDevices()">Get Devices</button>
             </div>
@@ -407,6 +428,16 @@
             }
             const button = document.getElementById('btn-get-devices');
             makeRequest('GET', endpoint, button);
+        }
+
+        function toggleTimeout() {
+            const forceScan = document.querySelector('input[name="force_scan"]:checked').value;
+            const timeoutContainer = document.getElementById('timeout-container');
+            if (forceScan === 'true') {
+                timeoutContainer.classList.add('visible');
+            } else {
+                timeoutContainer.classList.remove('visible');
+            }
         }
 
         function selectDevice() {
