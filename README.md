@@ -98,9 +98,8 @@ POST /play?streamUrl=https://stream.radio357.pl
 ```
 Parameters:
 - `streamUrl`: Stream URL (optional, uses default from config)
-- `device_id`: Override device for this playback (optional)
 
-Response indicates whether passthrough or transcoding is used.
+Response indicates whether passthrough or transcoding is used. Uses currently selected device from `/devices/select`.
 
 **Stop playback**
 ```bash
