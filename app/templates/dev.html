@@ -148,6 +148,26 @@
             margin-right: 5px;
         }
         button:hover { background: #2ea043; }
+        button:disabled {
+            background: #21262d;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        .radio-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 5px;
+        }
+        .radio-group label {
+            display: inline-flex;
+            align-items: center;
+            cursor: pointer;
+            margin-bottom: 0;
+        }
+        .radio-group input[type="radio"] {
+            margin-right: 5px;
+            cursor: pointer;
+        }
         .output-container {
             flex: 1;
             display: flex;
@@ -221,10 +241,17 @@
                 </div>
                 <div class="description">Get cached list of discovered devices</div>
                 <div class="form-group">
-                    <label>Force Scan (true/false)</label>
-                    <input type="text" id="devices_force_scan" value="false" placeholder="false">
+                    <label>Force Scan</label>
+                    <div class="radio-group">
+                        <label>
+                            <input type="radio" name="force_scan" value="false" checked> false
+                        </label>
+                        <label>
+                            <input type="radio" name="force_scan" value="true"> true
+                        </label>
+                    </div>
                 </div>
-                <button onclick="getDevices()">Get Devices</button>
+                <button id="btn-get-devices" onclick="getDevices()">Get Devices</button>
             </div>
 
             <div class="api-section">
@@ -236,7 +263,7 @@
                     <label>Device IP Address</label>
                     <input type="text" id="select_ip" placeholder="192.168.1.100">
                 </div>
-                <button onclick="selectDevice()">Select Device</button>
+                <button id="btn-select-device" onclick="selectDevice()">Select Device</button>
             </div>
 
             <div class="api-section">
@@ -244,7 +271,7 @@
                     <span class="method get">GET</span> /devices/current
                 </div>
                 <div class="description">Get currently selected device</div>
-                <button onclick="getCurrentDevice()">Get Current Device</button>
+                <button id="btn-current-device" onclick="getCurrentDevice()">Get Current Device</button>
             </div>
 
             <h2>Playback Control</h2>
@@ -258,7 +285,7 @@
                     <label>Stream URL (optional, uses default if empty)</label>
                     <input type="text" id="play_url" value="{{ default_stream_url }}" placeholder="http://stream-url.com/radio">
                 </div>
-                <button onclick="play()">Play</button>
+                <button id="btn-play" onclick="play()">Play</button>
             </div>
 
             <div class="api-section">
@@ -266,7 +293,7 @@
                     <span class="method post">POST</span> /stop
                 </div>
                 <div class="description">Stop playback</div>
-                <button onclick="stop()">Stop</button>
+                <button id="btn-stop" onclick="stop()">Stop</button>
             </div>
 
             <h2>Status</h2>
@@ -276,7 +303,7 @@
                     <span class="method get">GET</span> /status
                 </div>
                 <div class="description">Get current playback and device status</div>
-                <button onclick="getStatus()">Get Status</button>
+                <button id="btn-status" onclick="getStatus()">Get Status</button>
             </div>
 
             <div class="api-section">
@@ -284,7 +311,7 @@
                     <span class="method get">GET</span> /health
                 </div>
                 <div class="description">Health check</div>
-                <button onclick="getHealth()">Health Check</button>
+                <button id="btn-health" onclick="getHealth()">Health Check</button>
             </div>
         </div>
 
@@ -328,7 +355,12 @@
             return text.toString().replace(/[&<>"']/g, m => map[m]);
         }
 
-        async function makeRequest(method, endpoint) {
+        async function makeRequest(method, endpoint, button) {
+            // Set loading state
+            const originalText = button.textContent;
+            button.disabled = true;
+            button.textContent = 'Loading...';
+
             try {
                 log(`${method} ${endpoint}`, 'info');
 
@@ -355,13 +387,18 @@
             } catch (error) {
                 // Real network errors (connection refused, timeout, etc.)
                 log(`Network error: ${error.message}`, 'error');
+            } finally {
+                // Restore button state
+                button.disabled = false;
+                button.textContent = originalText;
             }
         }
 
         function getDevices() {
-            const force = document.getElementById('devices_force_scan').value;
+            const force = document.querySelector('input[name="force_scan"]:checked').value;
             const endpoint = `/devices?force_scan=${encodeURIComponent(force)}`;
-            makeRequest('GET', endpoint);
+            const button = document.getElementById('btn-get-devices');
+            makeRequest('GET', endpoint, button);
         }
 
         function selectDevice() {
@@ -370,29 +407,35 @@
                 log('IP address is required', 'info');
                 return;
             }
-            makeRequest('POST', `/devices/select?ip=${encodeURIComponent(ip)}`);
+            const button = document.getElementById('btn-select-device');
+            makeRequest('POST', `/devices/select?ip=${encodeURIComponent(ip)}`, button);
         }
 
         function getCurrentDevice() {
-            makeRequest('GET', '/devices/current');
+            const button = document.getElementById('btn-current-device');
+            makeRequest('GET', '/devices/current', button);
         }
 
         function play() {
             const url = document.getElementById('play_url').value.trim();
             const endpoint = url ? `/play?streamUrl=${encodeURIComponent(url)}` : '/play';
-            makeRequest('POST', endpoint);
+            const button = document.getElementById('btn-play');
+            makeRequest('POST', endpoint, button);
         }
 
         function stop() {
-            makeRequest('POST', '/stop');
+            const button = document.getElementById('btn-stop');
+            makeRequest('POST', '/stop', button);
         }
 
         function getStatus() {
-            makeRequest('GET', '/status');
+            const button = document.getElementById('btn-status');
+            makeRequest('GET', '/status', button);
         }
 
         function getHealth() {
-            makeRequest('GET', '/health');
+            const button = document.getElementById('btn-health');
+            makeRequest('GET', '/health', button);
         }
 
         // Resizable splitter
