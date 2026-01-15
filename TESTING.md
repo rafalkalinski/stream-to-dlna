@@ -218,23 +218,23 @@ echo "Running pre-commit checks..."
 
 # Format check
 black --check app/ tests/ || {
-    echo "❌ Code formatting issues found. Run: black app/ tests/"
+    echo "ERROR: Code formatting issues found. Run: black app/ tests/"
     exit 1
 }
 
 # Linting
 ruff check app/ tests/ || {
-    echo "❌ Linting issues found. Run: ruff check --fix app/ tests/"
+    echo "ERROR: Linting issues found. Run: ruff check --fix app/ tests/"
     exit 1
 }
 
 # Quick tests
 pytest tests/unit/ -q || {
-    echo "❌ Unit tests failed"
+    echo "ERROR: Unit tests failed"
     exit 1
 }
 
-echo "✅ All checks passed"
+echo "All checks passed"
 ```
 
 Make executable:
