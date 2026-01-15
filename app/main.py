@@ -210,11 +210,15 @@ def _detect_stream_format(stream_url: str) -> Optional[str]:
 
 def _background_device_scan():
     """Background thread to scan for devices on startup."""
+    global device_manager
     try:
         logger.info("Starting background device scan")
         devices = SSDPDiscovery.discover(timeout=10)
-        device_manager.update_device_cache(devices)
-        logger.info(f"Background scan complete. Found {len(devices)} devices")
+        if devices:
+            device_manager.update_device_cache(devices)
+            logger.info(f"Background scan complete. Found {len(devices)} devices")
+        else:
+            logger.info("Background scan complete. No devices found")
     except Exception as e:
         logger.error(f"Background device scan failed: {e}", exc_info=True)
 
