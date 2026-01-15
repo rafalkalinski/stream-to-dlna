@@ -61,5 +61,6 @@ venv.bak/
 Thumbs.db
 
 # Project specific
+config.yaml
 config.local.yaml
 *.log
