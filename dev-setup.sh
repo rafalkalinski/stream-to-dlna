@@ -4,7 +4,7 @@ set -e
 # Cleanup on error
 cleanup_on_error() {
     echo ""
-    echo "❌ Setup failed! Rolling back..."
+    echo "ERROR: Setup failed! Rolling back..."
     if [ -d "venv" ] && [ ! -f "venv/.setup_complete" ]; then
         echo "   Removing incomplete venv..."
         rm -rf venv
@@ -15,48 +15,48 @@ cleanup_on_error() {
 
 trap cleanup_on_error ERR
 
-echo "🚀 Setting up stream-to-dlna development environment..."
+echo "Setting up stream-to-dlna development environment..."
 echo ""
 
 # Check Python version
 PYTHON_VERSION=$(python3 --version | cut -d' ' -f2 | cut -d'.' -f1,2)
-echo "✓ Python version: $PYTHON_VERSION"
+echo "[OK] Python version: $PYTHON_VERSION"
 
 # Create virtual environment
 if [ ! -d "venv" ]; then
-    echo "📦 Creating virtual environment..."
+    echo "Creating virtual environment..."
     python3 -m venv venv
-    echo "✓ Virtual environment created"
+    echo "[OK] Virtual environment created"
 else
-    echo "✓ Virtual environment already exists"
+    echo "[OK] Virtual environment already exists"
 fi
 
 # Activate venv and install dependencies
-echo "📥 Installing dependencies..."
+echo "Installing dependencies..."
 source venv/bin/activate
 pip install --upgrade pip -q
 pip install -r requirements.txt -q
 pip install -r requirements-dev.txt -q
-echo "✓ Dependencies installed"
+echo "[OK] Dependencies installed"
 
 # Create config if needed
 if [ ! -f "config.yaml" ]; then
-    echo "⚙️  Creating config.yaml from example..."
+    echo "Creating config.yaml from example..."
     cp config.example.yaml config.yaml
-    echo "✓ config.yaml created (edit as needed)"
+    echo "[OK] config.yaml created (edit as needed)"
 fi
 
 # Run quick smoke test
 echo ""
-echo "🧪 Running smoke tests..."
+echo "Running smoke tests..."
 pytest tests/unit/test_validation.py -q
-echo "✓ Smoke tests passed"
+echo "[OK] Smoke tests passed"
 
 # Mark setup as complete
 touch venv/.setup_complete
 
 echo ""
-echo "✅ Development environment ready!"
+echo "Development environment ready!"
 echo ""
 echo "To activate virtual environment:"
 echo "  source venv/bin/activate"
