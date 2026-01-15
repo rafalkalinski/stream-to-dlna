@@ -3,7 +3,12 @@
 ## Quick Start
 
 ```bash
-# Install dev dependencies
+# Create virtual environment (recommended)
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
 pip install -r requirements-dev.txt
 
 # Run all tests
