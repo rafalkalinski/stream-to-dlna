@@ -150,7 +150,7 @@ def initialize():
 @app.route('/', methods=['GET'])
 def index():
     """Development console UI."""
-    return render_template('dev.html')
+    return render_template('dev.html', default_stream_url=config.default_stream_url)
 
 
 @app.route('/health', methods=['GET'])
