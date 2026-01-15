@@ -405,48 +405,19 @@ def play():
                 'message': f'Invalid stream URL format: {stream_url}'
             }), 400
 
-        # Handle device_id override or use current device
-        device_id = request.args.get('device_id')
-        device_info = None
+        # Use current device from device_manager
+        device_info = device_manager.get_current_device()
 
-        if device_id:
-            logger.info(f"Using device override: {device_id}")
-            # Try to find device info
-            device_info = device_manager.get_device_by_id(device_id)
+        if not device_info:
+            return jsonify({
+                'message': 'No device selected. Please use /devices/select first.'
+            }), 400
 
-            if not device_info:
-                # Scan for device
-                logger.info(f"Scanning for device {device_id}")
-                devices = SSDPDiscovery.discover(timeout=5)
-                for device in devices:
-                    if device.get('id') == device_id:
-                        device_info = device
-                        break
-
-            if not device_info:
-                return jsonify({
-                    'message': f'Device {device_id} not found'
-                }), 404
-
-            # Create temporary client for this device
-            active_client = _create_dlna_client_from_device(device_info)
-            # Ensure capabilities are detected
-            if not device_info.get('capabilities'):
-                device_info['capabilities'] = active_client.detect_capabilities()
-        else:
-            # No device_id override - use current device from device_manager
-            device_info = device_manager.get_current_device()
-
-            if not device_info:
-                return jsonify({
-                    'message': 'No device selected. Please use /device/select first.'
-                }), 400
-
-            # Create client from current device (with capabilities loaded from state)
-            active_client = _create_dlna_client_from_device(device_info)
-            # Load capabilities from saved device info
-            if device_info.get('capabilities'):
-                active_client.capabilities = device_info.get('capabilities')
+        # Create client from current device (with capabilities loaded from state)
+        active_client = _create_dlna_client_from_device(device_info)
+        # Load capabilities from saved device info
+        if device_info.get('capabilities'):
+            active_client.capabilities = device_info.get('capabilities')
 
         # Stop existing stream if running
         if streamer and streamer.is_running():
@@ -507,18 +478,13 @@ def play():
         success = active_client.play_url(playback_url)
 
         if success:
-            response_data = {
+            return jsonify({
                 'status': 'playing',
                 'stream_url': stream_url,
                 'playback_url': playback_url,
                 'transcoding': needs_transcoding,
                 'format': stream_format
-            }
-
-            if device_id:
-                response_data['device_id'] = device_id
-
-            return jsonify(response_data), 200
+            }), 200
         else:
             streamer.stop()
             return jsonify({
