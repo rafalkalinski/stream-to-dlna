@@ -4,6 +4,7 @@ import logging
 import sys
 import socket
 import requests
+import re
 from flask import Flask, request, jsonify, render_template
 from app.config import Config
 from app.dlna_client import DLNAClient
@@ -78,6 +79,45 @@ def get_local_ip() -> str:
         return local_ip
     except Exception:
         return "127.0.0.1"
+
+
+def validate_ip_address(ip: str) -> bool:
+    """
+    Validate IP address format - only digits and dots.
+
+    Args:
+        ip: IP address string to validate
+
+    Returns:
+        True if valid IPv4 format, False otherwise
+    """
+    # Strict regex: only digits and dots, 4 octets
+    ip_pattern = re.compile(r'^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$')
+    if not ip_pattern.match(ip):
+        return False
+
+    # Additional check: each octet must be 0-255
+    try:
+        octets = ip.split('.')
+        for octet in octets:
+            if int(octet) > 255:
+                return False
+        return True
+    except ValueError:
+        return False
+
+
+def validate_boolean_string(value: str) -> bool:
+    """
+    Validate that string is exactly 'true' or 'false'.
+
+    Args:
+        value: String to validate
+
+    Returns:
+        True if exactly 'true' or 'false', False otherwise
+    """
+    return value in ('true', 'false')
 
 
 def _create_dlna_client_from_device(device_info: dict) -> DLNAClient:
@@ -173,7 +213,15 @@ def devices():
     - timeout: Scan timeout in seconds when force_scan=true (default: 5, max: 15)
     """
     try:
-        force_scan = request.args.get('force_scan', default='false', type=str).lower() == 'true'
+        force_scan_param = request.args.get('force_scan', default='false', type=str).lower()
+
+        # Strict validation: only 'true' or 'false' allowed
+        if not validate_boolean_string(force_scan_param):
+            return jsonify({
+                'message': f'force_scan must be "true" or "false", got: {force_scan_param}'
+            }), 400
+
+        force_scan = force_scan_param == 'true'
 
         if force_scan:
             timeout = request.args.get('timeout', default=5, type=int)
@@ -211,6 +259,12 @@ def device_select():
         if not ip:
             return jsonify({
                 'message': 'ip parameter is required'
+            }), 400
+
+        # Strict IP validation: only digits and dots
+        if not validate_ip_address(ip):
+            return jsonify({
+                'message': f'Invalid IP address format: {ip}'
             }), 400
 
         device_info = None
