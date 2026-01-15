@@ -18,16 +18,30 @@
             height: 100vh;
         }
         .left-panel {
-            width: 50%;
+            flex: 1;
             overflow-y: auto;
             padding: 20px;
-            border-right: 1px solid #30363d;
+            min-width: 200px;
+        }
+        .splitter {
+            width: 5px;
+            background: #30363d;
+            cursor: col-resize;
+            flex-shrink: 0;
+            transition: background 0.2s;
+        }
+        .splitter:hover {
+            background: #58a6ff;
+        }
+        .splitter.dragging {
+            background: #58a6ff;
         }
         .right-panel {
-            width: 50%;
+            flex: 1;
             display: flex;
             flex-direction: column;
             padding: 20px;
+            min-width: 200px;
         }
         h1 {
             margin-bottom: 8px;
@@ -274,6 +288,8 @@
             </div>
         </div>
 
+        <div class="splitter" id="splitter"></div>
+
         <div class="right-panel">
             <div class="output-container">
                 <div class="output-header">
@@ -365,6 +381,52 @@
         function getHealth() {
             makeRequest('GET', '/health');
         }
+
+        // Resizable splitter
+        (function() {
+            const splitter = document.getElementById('splitter');
+            const leftPanel = document.querySelector('.left-panel');
+            const rightPanel = document.querySelector('.right-panel');
+            const container = document.querySelector('.container');
+
+            let isResizing = false;
+
+            splitter.addEventListener('mousedown', function(e) {
+                isResizing = true;
+                splitter.classList.add('dragging');
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+            });
+
+            document.addEventListener('mousemove', function(e) {
+                if (!isResizing) return;
+
+                const containerRect = container.getBoundingClientRect();
+                const leftWidth = e.clientX - containerRect.left;
+                const totalWidth = containerRect.width;
+
+                // Min/max constraints (20% - 80%)
+                const minWidth = totalWidth * 0.2;
+                const maxWidth = totalWidth * 0.8;
+
+                if (leftWidth >= minWidth && leftWidth <= maxWidth) {
+                    const leftFlex = leftWidth / totalWidth;
+                    const rightFlex = (totalWidth - leftWidth - 5) / totalWidth; // 5px for splitter
+
+                    leftPanel.style.flex = `${leftFlex} 0 0`;
+                    rightPanel.style.flex = `${rightFlex} 0 0`;
+                }
+            });
+
+            document.addEventListener('mouseup', function() {
+                if (isResizing) {
+                    isResizing = false;
+                    splitter.classList.remove('dragging');
+                    document.body.style.cursor = '';
+                    document.body.style.userSelect = '';
+                }
+            });
+        })();
     </script>
 </body>
 </html>
