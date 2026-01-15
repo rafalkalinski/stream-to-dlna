@@ -21,6 +21,8 @@ Stream internet radio to DLNA devices with automatic format detection and smart 
 
 ## Quick Start
 
+### Production (Docker)
+
 ```bash
 git clone https://github.com/rafalkalinski/stream-to-dlna.git
 cd stream-to-dlna
@@ -29,6 +31,25 @@ cd stream-to-dlna
 cp config.example.yaml config.yaml
 # Edit config.yaml with your settings
 docker-compose up -d
+```
+
+### Development (Local)
+
+```bash
+git clone https://github.com/rafalkalinski/stream-to-dlna.git
+cd stream-to-dlna
+
+# Automated setup
+./dev-setup.sh
+
+# Or manual setup
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+
+# Run tests
+pytest
 
 # Open dev console in browser
 open http://localhost:5000
