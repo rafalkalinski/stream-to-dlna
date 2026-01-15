@@ -31,7 +31,7 @@ class DeviceManager:
                     self.cached_devices = data.get('cached_devices', [])
                     self.last_scan_time = data.get('last_scan_time')
                     if self.current_device:
-                        logger.info(f"Loaded saved device: {self.current_device.get('friendly_name', 'Unknown')}")
+                        logger.debug(f"Loaded saved device: {self.current_device.get('friendly_name', 'Unknown')}")
             else:
                 logger.debug(f"State file {self.state_file} does not exist yet")
         except Exception as e:
