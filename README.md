@@ -20,6 +20,8 @@ Stream internet radio to DLNA devices with automatic format detection and smart 
 git clone https://github.com/rafalkalinski/stream-to-dlna.git
 cd stream-to-dlna
 
+# Create your config from example
+cp config.example.yaml config.yaml
 # Edit config.yaml with your settings
 docker-compose up -d
 
@@ -38,6 +40,12 @@ curl -X POST http://localhost:5000/play
 ```
 
 ## Configuration
+
+Create `config.yaml` from the example template:
+
+```bash
+cp config.example.yaml config.yaml
+```
 
 Edit `config.yaml`:
 
