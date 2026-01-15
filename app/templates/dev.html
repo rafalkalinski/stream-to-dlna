@@ -390,31 +390,66 @@
             const container = document.querySelector('.container');
 
             let isResizing = false;
+            const GRAB_MARGIN = 10; // px margin around splitter for easier grabbing
 
-            splitter.addEventListener('mousedown', function(e) {
-                isResizing = true;
-                splitter.classList.add('dragging');
-                document.body.style.cursor = 'col-resize';
-                document.body.style.userSelect = 'none';
+            // Load saved position from localStorage
+            function loadPosition() {
+                const savedRatio = localStorage.getItem('splitterPosition');
+                if (savedRatio) {
+                    const ratio = parseFloat(savedRatio);
+                    leftPanel.style.flex = `${ratio} 0 0`;
+                    rightPanel.style.flex = `${1 - ratio} 0 0`;
+                }
+            }
+
+            // Save position to localStorage
+            function savePosition(leftRatio) {
+                localStorage.setItem('splitterPosition', leftRatio.toString());
+            }
+
+            // Check if mouse is near splitter (with margin)
+            function isNearSplitter(clientX) {
+                const splitterRect = splitter.getBoundingClientRect();
+                return clientX >= splitterRect.left - GRAB_MARGIN &&
+                       clientX <= splitterRect.right + GRAB_MARGIN;
+            }
+
+            // Initialize with saved position
+            loadPosition();
+
+            // Start dragging on splitter or near it
+            document.addEventListener('mousedown', function(e) {
+                if (isNearSplitter(e.clientX)) {
+                    isResizing = true;
+                    splitter.classList.add('dragging');
+                    document.body.style.cursor = 'col-resize';
+                    document.body.style.userSelect = 'none';
+                    e.preventDefault();
+                }
             });
 
+            // Update cursor when hovering near splitter
             document.addEventListener('mousemove', function(e) {
-                if (!isResizing) return;
+                if (isResizing) {
+                    const containerRect = container.getBoundingClientRect();
+                    const leftWidth = e.clientX - containerRect.left;
+                    const totalWidth = containerRect.width;
 
-                const containerRect = container.getBoundingClientRect();
-                const leftWidth = e.clientX - containerRect.left;
-                const totalWidth = containerRect.width;
+                    // Min/max constraints (20% - 80%)
+                    const minWidth = totalWidth * 0.2;
+                    const maxWidth = totalWidth * 0.8;
 
-                // Min/max constraints (20% - 80%)
-                const minWidth = totalWidth * 0.2;
-                const maxWidth = totalWidth * 0.8;
+                    if (leftWidth >= minWidth && leftWidth <= maxWidth) {
+                        const leftFlex = leftWidth / totalWidth;
+                        const rightFlex = (totalWidth - leftWidth - 5) / totalWidth; // 5px for splitter
 
-                if (leftWidth >= minWidth && leftWidth <= maxWidth) {
-                    const leftFlex = leftWidth / totalWidth;
-                    const rightFlex = (totalWidth - leftWidth - 5) / totalWidth; // 5px for splitter
-
-                    leftPanel.style.flex = `${leftFlex} 0 0`;
-                    rightPanel.style.flex = `${rightFlex} 0 0`;
+                        leftPanel.style.flex = `${leftFlex} 0 0`;
+                        rightPanel.style.flex = `${rightFlex} 0 0`;
+                    }
+                } else if (isNearSplitter(e.clientX)) {
+                    document.body.style.cursor = 'col-resize';
+                } else {
+                    document.body.style.cursor = '';
                 }
             });
 
@@ -424,6 +459,12 @@
                     splitter.classList.remove('dragging');
                     document.body.style.cursor = '';
                     document.body.style.userSelect = '';
+
+                    // Save position
+                    const containerRect = container.getBoundingClientRect();
+                    const leftRect = leftPanel.getBoundingClientRect();
+                    const leftRatio = leftRect.width / containerRect.width;
+                    savePosition(leftRatio);
                 }
             });
         })();
