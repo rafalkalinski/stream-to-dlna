@@ -1,5 +1,10 @@
 # DLNA Radio Streamer
 
+[![Tests](https://github.com/rafalkalinski/stream-to-dlna/actions/workflows/tests.yml/badge.svg)](https://github.com/rafalkalinski/stream-to-dlna/actions/workflows/tests.yml)
+[![codecov](https://codecov.io/gh/rafalkalinski/stream-to-dlna/branch/main/graph/badge.svg)](https://codecov.io/gh/rafalkalinski/stream-to-dlna)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Docker](https://img.shields.io/docker/pulls/erkalina/stream-to-dlna.svg)](https://hub.docker.com/r/erkalina/stream-to-dlna)
+
 Stream internet radio to DLNA devices with automatic format detection and smart transcoding.
 
 ## Features
