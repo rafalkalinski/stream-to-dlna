@@ -333,7 +333,16 @@
                 log(`${method} ${endpoint}`, 'info');
 
                 const response = await fetch(endpoint, { method: method });
-                const data = await response.json();
+
+                // Try to parse JSON
+                let data;
+                try {
+                    data = await response.json();
+                } catch (parseError) {
+                    // Not JSON - likely HTML error page from invalid input
+                    log(`Invalid response (${response.status}): Expected JSON, got ${response.headers.get('content-type')}`, 'info');
+                    return;
+                }
 
                 if (response.ok) {
                     log(`Response (${response.status}): ${JSON.stringify(data, null, 2)}`, 'success');
@@ -343,6 +352,7 @@
                     log(`Response (${response.status}): ${JSON.stringify(data, null, 2)}`, logType);
                 }
             } catch (error) {
+                // Real network errors (connection refused, timeout, etc.)
                 log(`Network error: ${error.message}`, 'error');
             }
         }
