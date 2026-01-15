@@ -135,10 +135,12 @@ class SSDPDiscovery:
                                         device_callback(device_info)
                                     except Exception as e:
                                         logger.error(f"Device callback failed: {e}")
+                            else:
+                                logger.warning(f"Device at {location} returned no info (filtered out or failed parsing)")
                         except TimeoutError:
-                            logger.debug(f"Timeout fetching device info from {location}")
+                            logger.warning(f"Timeout fetching device info from {location}")
                         except Exception as e:
-                            logger.debug(f"Failed to fetch device info from {location}: {e}")
+                            logger.warning(f"Failed to fetch device info from {location}: {e}")
 
         except Exception as e:
             logger.error(f"SSDP discovery failed: {e}", exc_info=True)
