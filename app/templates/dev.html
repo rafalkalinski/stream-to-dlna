@@ -338,7 +338,7 @@
         function selectDevice() {
             const ip = document.getElementById('select_ip').value.trim();
             if (!ip) {
-                log('IP address is required', 'error');
+                log('IP address is required', 'info');
                 return;
             }
             makeRequest('POST', `/devices/select?ip=${encodeURIComponent(ip)}`);
