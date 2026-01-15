@@ -1,6 +1,20 @@
 #!/bin/bash
 set -e
 
+# Cleanup on error
+cleanup_on_error() {
+    echo ""
+    echo "❌ Setup failed! Rolling back..."
+    if [ -d "venv" ] && [ ! -f "venv/.setup_complete" ]; then
+        echo "   Removing incomplete venv..."
+        rm -rf venv
+    fi
+    echo "   Run './dev-setup.sh' again to retry."
+    exit 1
+}
+
+trap cleanup_on_error ERR
+
 echo "🚀 Setting up stream-to-dlna development environment..."
 echo ""
 
@@ -37,6 +51,9 @@ echo ""
 echo "🧪 Running smoke tests..."
 pytest tests/unit/test_validation.py -q
 echo "✓ Smoke tests passed"
+
+# Mark setup as complete
+touch venv/.setup_complete
 
 echo ""
 echo "✅ Development environment ready!"
