@@ -5,6 +5,7 @@ import sys
 import socket
 import requests
 import re
+from urllib.parse import urlparse
 from flask import Flask, request, jsonify, render_template
 from app.config import Config
 from app.dlna_client import DLNAClient
@@ -118,6 +119,29 @@ def validate_boolean_string(value: str) -> bool:
         True if exactly 'true' or 'false', False otherwise
     """
     return value in ('true', 'false')
+
+
+def validate_stream_url(url: str) -> bool:
+    """
+    Validate stream URL - must be valid http or https URL.
+
+    Args:
+        url: URL string to validate
+
+    Returns:
+        True if valid http/https URL, False otherwise
+    """
+    try:
+        parsed = urlparse(url)
+        # Must have scheme and netloc (domain)
+        if not parsed.scheme or not parsed.netloc:
+            return False
+        # Only allow http and https schemes (no file://, ftp://, etc.)
+        if parsed.scheme not in ('http', 'https'):
+            return False
+        return True
+    except Exception:
+        return False
 
 
 def _create_dlna_client_from_device(device_info: dict) -> DLNAClient:
@@ -375,6 +399,12 @@ def play():
         if not stream_url:
             return jsonify({
                 'message': 'No stream URL provided and no default configured'
+            }), 400
+
+        # Validate stream URL
+        if not validate_stream_url(stream_url):
+            return jsonify({
+                'message': f'Invalid stream URL format: {stream_url}'
             }), 400
 
         # Handle device_id override or use current device
