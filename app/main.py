@@ -43,7 +43,6 @@ app = Flask(__name__)
 def not_found(error):
     """Return JSON for 404 errors instead of HTML."""
     return jsonify({
-        'error': 'Not Found',
         'message': 'The requested endpoint does not exist'
     }), 404
 
@@ -51,7 +50,6 @@ def not_found(error):
 def method_not_allowed(error):
     """Return JSON for 405 errors instead of HTML."""
     return jsonify({
-        'error': 'Method Not Allowed',
         'message': 'The method is not allowed for the requested endpoint'
     }), 405
 
