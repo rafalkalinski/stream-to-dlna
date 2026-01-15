@@ -338,7 +338,9 @@
                 if (response.ok) {
                     log(`Response (${response.status}): ${JSON.stringify(data, null, 2)}`, 'success');
                 } else {
-                    log(`Error (${response.status}): ${JSON.stringify(data, null, 2)}`, 'error');
+                    // Check if it's a validation message or actual error
+                    const logType = data.error ? 'error' : 'info';
+                    log(`Response (${response.status}): ${JSON.stringify(data, null, 2)}`, logType);
                 }
             } catch (error) {
                 log(`Network error: ${error.message}`, 'error');
