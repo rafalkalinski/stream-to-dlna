@@ -6,13 +6,14 @@ import socket
 import sys
 from urllib.parse import urlparse
 
-import requests
 from flask import Flask, jsonify, render_template, request
 
 from app.config import Config
 from app.device_manager import DeviceManager
 from app.discovery import SSDPDiscovery
 from app.dlna_client import DLNAClient
+from app.http_client import http_client
+from app.security import init_rate_limiter, require_api_key
 from app.streamer import AudioStreamer, PassthroughStreamer
 
 # Configure logging
@@ -67,6 +68,7 @@ config: Config | None = None
 streamer: AudioStreamer | PassthroughStreamer | None = None
 dlna_client: DLNAClient | None = None
 device_manager: DeviceManager | None = None
+rate_limiter = None  # Will be initialized after config is loaded
 
 
 def get_local_ip() -> str:
@@ -196,11 +198,13 @@ def _detect_stream_format(stream_url: str) -> str | None:
         MIME type string or None
     """
     try:
-        response = requests.head(stream_url, timeout=5, allow_redirects=True)
+        timeout = config.stream_detection_timeout if config else 5
+        response = http_client.head(stream_url, timeout=timeout, allow_redirects=True)
         content_type = response.headers.get('Content-Type', '')
         if content_type:
             # Extract just the MIME type (before any semicolon)
-            mime_type = content_type.split(';')[0].strip()
+            # Add length limit for security
+            mime_type = content_type.split(';')[0].strip()[:100]
             logger.info(f"Detected stream format: {mime_type}")
             return mime_type
     except Exception as e:
@@ -236,8 +240,9 @@ def _background_device_scan():
             logger.error(f"Failed to add device to cache in callback: {e}", exc_info=True)
 
     try:
-        logger.info("Starting background device scan (10s timeout)")
-        devices = SSDPDiscovery.discover(timeout=10, device_callback=on_device_found)
+        timeout = config.device_discovery_timeout if config else 10
+        logger.info(f"Starting background device scan ({timeout}s timeout)")
+        devices = SSDPDiscovery.discover(timeout=timeout, device_callback=on_device_found)
 
         logger.info(f"Background scan discovery returned {len(devices)} devices")
         logger.info(f"Callback was invoked for {len(devices_found_via_callback)} devices")
@@ -259,10 +264,19 @@ def _background_device_scan():
 
 def initialize():
     """Initialize application components."""
-    global config, dlna_client, device_manager
+    global config, dlna_client, device_manager, rate_limiter
 
     config = Config()
     logger.info("Configuration loaded")
+
+    # Configure HTTP client with connection pooling
+    http_client.configure(
+        pool_connections=config.connection_pool_size,
+        pool_maxsize=config.connection_pool_maxsize
+    )
+
+    # Initialize rate limiter if enabled
+    rate_limiter = init_rate_limiter(app, config)
 
     # Initialize device manager
     device_manager = DeviceManager()
@@ -342,6 +356,7 @@ def devices():
 
 
 @app.route('/devices/select', methods=['POST'])
+@require_api_key(lambda: config)
 def device_select():
     """Select a DLNA device by IP address and detect its capabilities."""
     global dlna_client
@@ -458,6 +473,7 @@ def device_current():
 
 
 @app.route('/play', methods=['POST'])
+@require_api_key(lambda: config)
 def play():
     """Start streaming radio to DLNA device with smart transcoding."""
     global streamer, dlna_client
@@ -517,16 +533,19 @@ def play():
 
         # Create appropriate streamer
         if needs_transcoding:
-            # Use FFmpeg transcoding
+            # Use FFmpeg transcoding with configured parameters
             streamer = AudioStreamer(
                 stream_url=stream_url,
                 port=config.stream_port,
-                bitrate=config.mp3_bitrate
+                bitrate=config.mp3_bitrate,
+                chunk_size=config.ffmpeg_chunk_size,
+                max_stderr_lines=config.ffmpeg_max_stderr_lines,
+                protocol_whitelist=config.ffmpeg_protocol_whitelist
             )
             streamer.start()
 
             # Wait for HTTP server to be ready before sending to DLNA device
-            if not streamer.wait_until_ready(timeout=10):
+            if not streamer.wait_until_ready(timeout=config.ffmpeg_startup_timeout):
                 streamer.stop()
                 return jsonify({
                     'error': 'Streaming server failed to start'
@@ -573,6 +592,7 @@ def play():
 
 
 @app.route('/stop', methods=['POST'])
+@require_api_key(lambda: config)
 def stop():
     """Stop streaming."""
     global streamer
