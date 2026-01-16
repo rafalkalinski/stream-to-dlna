@@ -1,15 +1,41 @@
-"""FFmpeg-based audio streaming with AAC to MP3 transcoding."""
+"""Audio streaming with optional FFmpeg transcoding or passthrough."""
 
+import logging
 import subprocess
 import threading
-import logging
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from socketserver import ThreadingMixIn
-from typing import Optional
-import time
-import socket
 
 logger = logging.getLogger(__name__)
+
+
+class PassthroughStreamer:
+    """
+    Passthrough streamer - returns original stream URL without transcoding.
+    Used when DLNA device supports the native stream format.
+    """
+
+    def __init__(self, stream_url: str):
+        self.stream_url = stream_url
+        self.running = False
+
+    def start(self):
+        """Mark as running (no actual process to start)."""
+        self.running = True
+        logger.info(f"Passthrough mode enabled for {self.stream_url}")
+
+    def stop(self):
+        """Mark as stopped."""
+        self.running = False
+        logger.info("Passthrough streamer stopped")
+
+    def is_running(self) -> bool:
+        """Check if streamer is active."""
+        return self.running
+
+    def get_stream_url(self, host: str = None) -> str:
+        """Return the original stream URL."""
+        return self.stream_url
 
 
 class ReuseAddrHTTPServer(ThreadingMixIn, HTTPServer):
@@ -21,7 +47,7 @@ class ReuseAddrHTTPServer(ThreadingMixIn, HTTPServer):
 class StreamHandler(BaseHTTPRequestHandler):
     """HTTP handler for serving transcoded audio stream."""
 
-    ffmpeg_process: Optional[subprocess.Popen] = None
+    ffmpeg_process: subprocess.Popen | None = None
 
     def do_GET(self):
         """Handle GET request for audio stream."""
@@ -58,9 +84,9 @@ class AudioStreamer:
         self.stream_url = stream_url
         self.port = port
         self.bitrate = bitrate
-        self.ffmpeg_process: Optional[subprocess.Popen] = None
-        self.http_server: Optional[HTTPServer] = None
-        self.server_thread: Optional[threading.Thread] = None
+        self.ffmpeg_process: subprocess.Popen | None = None
+        self.http_server: HTTPServer | None = None
+        self.server_thread: threading.Thread | None = None
         self.running = False
 
     def start(self):
@@ -178,3 +204,32 @@ class AudioStreamer:
     def get_stream_url(self, host: str) -> str:
         """Get the URL to access the transcoded stream."""
         return f"http://{host}:{self.port}/stream.mp3"
+
+    def wait_until_ready(self, timeout: int = 10) -> bool:
+        """
+        Wait until HTTP server is ready to serve requests.
+
+        Args:
+            timeout: Maximum time to wait in seconds
+
+        Returns:
+            True if ready, False if timeout
+        """
+        import socket
+        import time
+
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            try:
+                # Try to connect to the HTTP server
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(1)
+                sock.connect(('127.0.0.1', self.port))
+                sock.close()
+                logger.info("Streaming server is ready")
+                return True
+            except (OSError, ConnectionRefusedError):
+                time.sleep(0.2)
+
+        logger.warning(f"Streaming server not ready after {timeout}s")
+        return False
