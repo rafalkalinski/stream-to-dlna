@@ -1,10 +1,5 @@
 # DLNA Radio Streamer Configuration
 
-# DLNA device settings
-dlna:
-  # DLNA device address (IP address, hostname like panasonic.local, or domain)
-  host: "192.168.1.100"
-
 # Radio streaming settings
 radio:
   # Default radio stream URL (can be overridden via API)
