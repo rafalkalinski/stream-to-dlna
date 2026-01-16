@@ -44,51 +44,118 @@ All user inputs are strictly validated:
 - Built-in retry logic with exponential backoff
 - Protects against connection exhaustion
 
-### ⚠️ Optional Security Features
+### ⚠️ Authentication & Authorization
 
-#### Rate Limiting
+#### Default Configuration: OPEN ACCESS
 
-Enable rate limiting to prevent abuse:
+**⚠️ CRITICAL SECURITY WARNING:**
 
-1. Install Flask-Limiter:
-   ```bash
-   pip install Flask-Limiter==3.5.0
-   ```
+By default, Stream-to-DLNA runs with **NO AUTHENTICATION**. This means:
+- ✅ Suitable for **trusted home networks only**
+- ❌ **NEVER expose to internet** without authentication
+- ❌ **NEVER run in production** without authentication
 
-2. Enable in `config.yaml`:
-   ```yaml
-   security:
-     rate_limit_enabled: true
-     rate_limit_default: "100 per hour"
-   ```
+**Default config values:**
+```yaml
+security:
+  api_auth_enabled: false  # ⚠️ NO AUTH - all endpoints open
+  rate_limit_enabled: false  # ⚠️ NO LIMITS - can be abused
+```
 
-#### API Authentication
+#### Enabling API Key Authentication (REQUIRED for Production)
 
-Protect API endpoints with API key:
+**Step 1:** Generate strong API key
+```bash
+# Generate 32-character random key
+openssl rand -hex 32
+# Example output: a1b2c3d4e5f6...
+```
 
-1. Enable in `config.yaml`:
-   ```yaml
-   security:
-     api_auth_enabled: true
-     api_key: "your-secret-api-key-here"
-   ```
+**Step 2:** Enable authentication in `config.yaml`
+```yaml
+security:
+  api_auth_enabled: true
+  api_key: "a1b2c3d4e5f6789..." # Your generated key
+```
 
-2. All requests to protected endpoints must include:
-   ```
-   X-API-Key: your-secret-api-key-here
-   ```
+**Step 3:** Restart the application
 
-**Protected Endpoints:**
-- `POST /devices/select`
-- `POST /play`
-- `POST /stop`
+**Step 4:** All protected endpoints now require API key:
+```bash
+# ❌ FAILS - No API key
+curl -X POST http://localhost:5000/play
+# Response: 401 Unauthorized
 
-**Public Endpoints:**
-- `GET /health`
-- `GET /devices`
-- `GET /devices/current`
-- `GET /status`
-- `GET /` (web console)
+# ✅ WORKS - Valid API key
+curl -X POST http://localhost:5000/play \
+  -H "X-API-Key: a1b2c3d4e5f6789..."
+# Response: 200 OK
+```
+
+#### Endpoint Access Control
+
+**Protected Endpoints** (require `X-API-Key` when `api_auth_enabled: true`):
+- `POST /devices/select` - Device selection (can affect playback)
+- `POST /play` - Start playback (state-changing operation)
+- `POST /stop` - Stop playback (state-changing operation)
+
+**Public Endpoints** (always accessible, even with auth enabled):
+- `GET /` - Web console (read-only UI)
+- `GET /health` - Health check (monitoring)
+- `GET /devices` - List devices (read-only)
+- `GET /devices/current` - Current device info (read-only)
+- `GET /status` - Playback status (read-only)
+
+**Rationale:** Only state-changing operations require authentication. Read-only monitoring endpoints remain public for health checks and dashboards.
+
+#### Rate Limiting (Recommended)
+
+Enable rate limiting to prevent API abuse:
+
+**Step 1:** Install Flask-Limiter
+```bash
+pip install Flask-Limiter==3.5.0
+```
+
+**Step 2:** Enable in `config.yaml`
+```yaml
+security:
+  rate_limit_enabled: true
+  rate_limit_default: "100 per hour"  # Adjust based on your needs
+```
+
+**Important:** Rate limiting applies to **ALL endpoints** when enabled, including public ones.
+
+#### API Key Management Best Practices
+
+**Storage:**
+- ✅ Store in environment variables
+- ✅ Use secrets management (Vault, AWS Secrets Manager)
+- ✅ Restrict file permissions (`chmod 600 config.yaml`)
+- ❌ Never commit to git
+- ❌ Never log or expose in error messages
+
+**Rotation:**
+- Rotate API keys every 90 days
+- Rotate immediately if compromised
+- Use different keys for dev/staging/production
+
+**Example with environment variable:**
+```bash
+# .env file (not committed to git)
+STREAM_TO_DLNA_API_KEY="a1b2c3d4e5f6789..."
+
+# docker-compose.yaml
+environment:
+  - API_KEY=${STREAM_TO_DLNA_API_KEY}
+```
+
+```yaml
+# config.yaml
+security:
+  api_auth_enabled: true
+  api_key: ${API_KEY}  # Read from environment
+```
 
 ## Deployment Security Considerations
 

@@ -141,26 +141,82 @@ Note: Device configuration is done via API (no manual IP configuration needed).
 
 ### Security Configuration
 
-For production deployments, enable security features:
+⚠️ **By default, the API is OPEN without authentication.** This is suitable for trusted local networks only.
 
-1. **API Authentication** (recommended for production):
+For production deployments, **you MUST enable security features:**
+
+#### 1. API Key Authentication (Strongly Recommended)
+
+**Default state:** `api_auth_enabled: false` - **all endpoints are accessible without authentication**
+
+**To enable authentication:**
+
 ```yaml
+# config.yaml
 security:
   api_auth_enabled: true
-  api_key: "your-32-character-random-key-here"
+  api_key: "your-32-character-random-key-here"  # Generate with: openssl rand -hex 32
 ```
 
-2. **Rate Limiting** (requires Flask-Limiter):
+**Protected endpoints** (require `X-API-Key` header when auth is enabled):
+- `POST /devices/select` - Device selection
+- `POST /play` - Start playback
+- `POST /stop` - Stop playback
+
+**Public endpoints** (always accessible):
+- `GET /` - Web console
+- `GET /health` - Health check
+- `GET /devices` - List devices
+- `GET /devices/current` - Current device
+- `GET /status` - Playback status
+
+**Usage with authentication enabled:**
+```bash
+# Without API key - returns 401 Unauthorized
+curl -X POST http://localhost:5000/play
+
+# With valid API key - works
+curl -X POST http://localhost:5000/play \
+  -H "X-API-Key: your-32-character-random-key-here"
+```
+
+#### 2. Rate Limiting (Optional)
+
+**Default state:** `rate_limit_enabled: false` - **no rate limiting applied**
+
+**To enable rate limiting:**
+
+1. Install Flask-Limiter:
 ```bash
 pip install Flask-Limiter==3.5.0
 ```
+
+2. Enable in config:
 ```yaml
 security:
   rate_limit_enabled: true
-  rate_limit_default: "100 per hour"
+  rate_limit_default: "100 per hour"  # Adjust as needed
 ```
 
-See [SECURITY.md](SECURITY.md) for full security guide.
+**Important:** Rate limiting applies to ALL endpoints when enabled.
+
+#### Security Best Practices
+
+✅ **DO** for production:
+- Enable API authentication (`api_auth_enabled: true`)
+- Use strong random API key (minimum 32 characters)
+- Store API key securely (environment variables, secrets manager)
+- Enable rate limiting to prevent abuse
+- Use HTTPS reverse proxy (nginx, Traefik)
+- Run behind firewall with restricted access
+
+❌ **DON'T** for production:
+- Leave authentication disabled (`api_auth_enabled: false`)
+- Use weak or guessable API keys
+- Expose directly to internet without reverse proxy
+- Commit API keys to git
+
+See [SECURITY.md](SECURITY.md) for comprehensive security guide and deployment checklist.
 
 ## API Reference
 
