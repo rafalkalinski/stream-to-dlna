@@ -141,7 +141,7 @@ Note: Device configuration is done via API (no manual IP configuration needed).
 
 ### Security Configuration
 
-⚠️ **By default, the API is OPEN without authentication.** This is suitable for trusted local networks only.
+**By default, the API is OPEN without authentication.** This is suitable for trusted local networks only.
 
 For production deployments, **you MUST enable security features:**
 
@@ -202,7 +202,7 @@ security:
 
 #### Security Best Practices
 
-✅ **DO** for production:
+**DO** for production:
 - Enable API authentication (`api_auth_enabled: true`)
 - Use strong random API key (minimum 32 characters)
 - Store API key securely (environment variables, secrets manager)
@@ -210,7 +210,7 @@ security:
 - Use HTTPS reverse proxy (nginx, Traefik)
 - Run behind firewall with restricted access
 
-❌ **DON'T** for production:
+**DON'T** for production:
 - Leave authentication disabled (`api_auth_enabled: false`)
 - Use weak or guessable API keys
 - Expose directly to internet without reverse proxy

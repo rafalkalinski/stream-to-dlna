@@ -43,7 +43,7 @@ timeouts:
   ffmpeg_startup: 10      # FFmpeg process startup timeout
 
 # Security settings
-# ⚠️ WARNING: By default, ALL endpoints are OPEN without authentication!
+# WARNING: By default, ALL endpoints are OPEN without authentication!
 # This is suitable for trusted home networks only.
 # For production: ENABLE authentication and rate limiting!
 security:

@@ -1,4 +1,4 @@
-# 🔒 Security Guide - Stream-to-DLNA
+# Security Guide - Stream-to-DLNA
 
 ## Overview
 
@@ -6,7 +6,7 @@ This document describes the security architecture, best practices, and considera
 
 ## Security Features
 
-### ✅ Input Validation
+### Input Validation
 
 All user inputs are strictly validated:
 
@@ -24,42 +24,42 @@ All user inputs are strictly validated:
   - Exact match only ('true' or 'false')
   - Case-sensitive
 
-### ✅ Process-Level File Locking
+### Process-Level File Locking
 
 - State file (`/app/state.json`) uses `fcntl` for inter-process locking
 - Prevents race conditions in multi-worker environments
 - Shared lock for reads, exclusive lock for writes
 
-### ✅ FFmpeg Security
+### FFmpeg Security
 
 - **Protocol Whitelist**: FFmpeg is restricted to safe protocols (http,https,tcp,tls)
 - **PID Tracking**: Orphaned processes are detected and cleaned up on startup
 - **Stderr Buffer Limit**: Prevents memory exhaustion from excessive FFmpeg output
 - **Configurable**: All security parameters are in `config.yaml`
 
-### ✅ HTTP Client with Connection Pooling
+### HTTP Client with Connection Pooling
 
 - Reuses connections for better performance
 - Configurable pool size
 - Built-in retry logic with exponential backoff
 - Protects against connection exhaustion
 
-### ⚠️ Authentication & Authorization
+### Authentication & Authorization
 
 #### Default Configuration: OPEN ACCESS
 
-**⚠️ CRITICAL SECURITY WARNING:**
+**CRITICAL SECURITY WARNING:**
 
 By default, Stream-to-DLNA runs with **NO AUTHENTICATION**. This means:
-- ✅ Suitable for **trusted home networks only**
-- ❌ **NEVER expose to internet** without authentication
-- ❌ **NEVER run in production** without authentication
+- Suitable for **trusted home networks only**
+- **NEVER expose to internet** without authentication
+- **NEVER run in production** without authentication
 
 **Default config values:**
 ```yaml
 security:
-  api_auth_enabled: false  # ⚠️ NO AUTH - all endpoints open
-  rate_limit_enabled: false  # ⚠️ NO LIMITS - can be abused
+  api_auth_enabled: false  # NO AUTH - all endpoints open
+  rate_limit_enabled: false  # NO LIMITS - can be abused
 ```
 
 #### Enabling API Key Authentication (REQUIRED for Production)
@@ -82,11 +82,11 @@ security:
 
 **Step 4:** All protected endpoints now require API key:
 ```bash
-# ❌ FAILS - No API key
+# FAILS - No API key
 curl -X POST http://localhost:5000/play
 # Response: 401 Unauthorized
 
-# ✅ WORKS - Valid API key
+# WORKS - Valid API key
 curl -X POST http://localhost:5000/play \
   -H "X-API-Key: a1b2c3d4e5f6789..."
 # Response: 200 OK
@@ -129,11 +129,11 @@ security:
 #### API Key Management Best Practices
 
 **Storage:**
-- ✅ Store in environment variables
-- ✅ Use secrets management (Vault, AWS Secrets Manager)
-- ✅ Restrict file permissions (`chmod 600 config.yaml`)
-- ❌ Never commit to git
-- ❌ Never log or expose in error messages
+- Store in environment variables
+- Use secrets management (Vault, AWS Secrets Manager)
+- Restrict file permissions (`chmod 600 config.yaml`)
+- Never commit to git
+- Never log or expose in error messages
 
 **Rotation:**
 - Rotate API keys every 90 days
@@ -159,7 +159,7 @@ security:
 
 ## Deployment Security Considerations
 
-### 🔴 Critical: Docker Host Network Mode
+### Critical: Docker Host Network Mode
 
 **Issue:** Docker Compose uses `network_mode: host` for SSDP multicast discovery.
 
@@ -179,7 +179,7 @@ iptables -A OUTPUT -p udp --dport 1900 -j ACCEPT # SSDP
 iptables -A OUTPUT -j DROP
 ```
 
-### 🔴 Critical: State File Exposure
+### Critical: State File Exposure
 
 **Issue:** `/app/state.json` contains device IPs and network topology.
 
@@ -189,11 +189,11 @@ iptables -A OUTPUT -j DROP
 ```yaml
 # docker-compose.yaml
 volumes:
-  - ./config.yaml:/app/config.yaml:ro  # ✅ Read-only
-  - state-data:/app                     # ✅ Named volume (not host path)
+  - ./config.yaml:/app/config.yaml:ro  # Read-only
+  - state-data:/app                     # Named volume (not host path)
 ```
 
-### 🟡 Medium: Gunicorn Configuration
+### Medium: Gunicorn Configuration
 
 **Recommended Configuration:**
 - **Workers:** 1 (prevents state inconsistency)
@@ -206,7 +206,7 @@ performance:
   gunicorn_threads: 4
 ```
 
-### 🟡 Medium: Stream URL Validation
+### Medium: Stream URL Validation
 
 Private IPs (10.x, 172.16-31.x, 192.168.x.x) are **allowed** by default for local streaming.
 
@@ -274,10 +274,10 @@ Contact: [Your security contact email/method]
 
 | Date | Auditor | Findings | Status |
 |------|---------|----------|--------|
-| 2026-01-16 | Principal Developer | Multi-worker race conditions | ✅ Fixed |
-| 2026-01-16 | Principal Developer | FFmpeg process leaks | ✅ Fixed |
-| 2026-01-16 | Principal Developer | SSRF protection review | ✅ Implemented |
-| 2026-01-16 | Principal Developer | Input validation audit | ✅ Comprehensive |
+| 2026-01-16 | Principal Developer | Multi-worker race conditions | Fixed |
+| 2026-01-16 | Principal Developer | FFmpeg process leaks | Fixed |
+| 2026-01-16 | Principal Developer | SSRF protection review | Implemented |
+| 2026-01-16 | Principal Developer | Input validation audit | Comprehensive |
 
 ## License
 
