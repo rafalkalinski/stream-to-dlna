@@ -39,10 +39,13 @@ Major security, performance, and reliability improvements with principal develop
 - **Connection Exhaustion**: Connection pooling reuses HTTP connections
 
 ### Documentation
-- Added SECURITY.md with deployment security guide
-- Updated README.md with new features and configuration options
-- Enhanced config.example.yaml with all available options
+- Added SECURITY.md with comprehensive deployment security guide
+- Updated README.md with new features and detailed security configuration
+- Enhanced config.example.yaml with all available options and security warnings
 - Added security checklist for production deployments
+- Clarified authentication model: disabled by default, optional to enable
+- Documented protected vs public endpoints
+- Added API key generation and management best practices
 
 ## [v0.2] - 2026-01-16
 

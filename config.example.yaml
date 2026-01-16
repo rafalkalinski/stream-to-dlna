@@ -43,14 +43,23 @@ timeouts:
   ffmpeg_startup: 10      # FFmpeg process startup timeout
 
 # Security settings
+# ⚠️ WARNING: By default, ALL endpoints are OPEN without authentication!
+# This is suitable for trusted home networks only.
+# For production: ENABLE authentication and rate limiting!
 security:
-  # Enable rate limiting (requires Flask-Limiter)
-  rate_limit_enabled: false
-  rate_limit_default: "100 per hour"  # Default rate limit for all endpoints
-
-  # Enable API authentication (requires API key in X-API-Key header)
+  # API Key Authentication
+  # Default: false (NO AUTH - all endpoints accessible)
+  # Set to true and provide api_key to protect state-changing endpoints:
+  #   POST /devices/select, POST /play, POST /stop
+  # Read-only endpoints remain public (health, status, devices list)
   api_auth_enabled: false
-  # api_key: "your-secret-api-key-here"  # Uncomment and set your key
+  # api_key: "your-secret-api-key-here"  # Generate with: openssl rand -hex 32
+
+  # Rate Limiting (requires: pip install Flask-Limiter==3.5.0)
+  # Default: false (NO LIMITS - can be abused)
+  # Set to true to limit request rate on ALL endpoints
+  rate_limit_enabled: false
+  rate_limit_default: "100 per hour"  # Adjust based on your needs
 
 # Performance settings
 performance:
