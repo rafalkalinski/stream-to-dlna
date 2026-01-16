@@ -63,7 +63,7 @@ open http://localhost:5000
 curl http://localhost:5000/devices?force_scan=true
 
 # Select device
-curl -X POST "http://localhost:5000/devices/select?ip=192.168.1.100"
+curl -X POST http://localhost:5000/devices/select?ip=192.168.1.100
 
 # Play radio
 curl -X POST http://localhost:5000/play
