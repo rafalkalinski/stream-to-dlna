@@ -54,23 +54,42 @@ security:
   # Default: false (NO LIMITS - can be abused)
   # Set to true to limit request rate on ALL endpoints
   rate_limit_enabled: false
-  rate_limit_default: "100 per hour"  # Adjust based on your needs
+  # Format: "<count> per <unit>" where unit is: second, minute, hour, day, month, year
+  # Examples:
+  #   "100 per hour"   - max 100 requests per hour
+  #   "10 per minute"  - max 10 requests per minute
+  #   "1000 per day"   - max 1000 requests per day
+  #   "100 per day, 10 per hour"  - combined limits (most restrictive applies)
+  rate_limit_default: "100 per hour"
 
 # Performance settings
+# ADVANCED: Do not modify unless you understand the implications
 performance:
-  # Gunicorn workers (recommended: 1 for consistent state management)
+  # Gunicorn workers - KEEP AT 1 to prevent race conditions with state file
+  # Changing this value may cause data corruption and playback issues
   gunicorn_workers: 1
-  # Gunicorn threads per worker
+
+  # Gunicorn threads - increase only if you have many concurrent API requests
+  # Most home users should keep the default value
   gunicorn_threads: 4
-  # HTTP connection pool size for outgoing requests
+
+  # HTTP connection pool - ADVANCED: Only modify if you understand connection pooling
+  # These values affect outgoing HTTP connections to DLNA devices and streams
   connection_pool_size: 10
   connection_pool_maxsize: 20
 
 # FFmpeg settings
+# ADVANCED: Do not modify unless you understand FFmpeg internals
 ffmpeg:
-  # Chunk size for streaming (bytes)
+  # Chunk size for streaming - affects latency vs throughput tradeoff
+  # Lower values: less latency, more CPU overhead
+  # Higher values: more latency, less CPU overhead
   chunk_size: 8192
-  # Maximum stderr buffer lines to prevent memory leak
+
+  # Maximum stderr buffer lines - only increase for FFmpeg debugging
+  # High values may cause memory issues if FFmpeg produces excessive errors
   max_stderr_lines: 1000
-  # Protocol whitelist for security (http,https,tcp,tls,file)
+
+  # Protocol whitelist - SECURITY: restricts FFmpeg to safe protocols
+  # Do not add 'file' protocol unless you understand security implications
   protocol_whitelist: "http,https,tcp,tls"
