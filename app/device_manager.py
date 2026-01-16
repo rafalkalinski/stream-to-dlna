@@ -1,5 +1,6 @@
 """Device state management with persistence."""
 
+import fcntl
 import json
 import logging
 import os
@@ -23,22 +24,28 @@ class DeviceManager:
         self._load_state()
 
     def _load_state(self):
-        """Load device state from JSON file."""
+        """Load device state from JSON file with process-level locking."""
         try:
             if os.path.exists(self.state_file):
-                with open(self.state_file) as f:
-                    data = json.load(f)
-                    self.current_device = data.get('current_device')
-                    self.cached_devices = data.get('cached_devices', [])
-                    self.last_scan_time = data.get('last_scan_time')
+                with open(self.state_file, 'r') as f:
+                    # Acquire shared lock for reading (multiple readers allowed)
+                    fcntl.flock(f.fileno(), fcntl.LOCK_SH)
+                    try:
+                        data = json.load(f)
+                        self.current_device = data.get('current_device')
+                        self.cached_devices = data.get('cached_devices', [])
+                        self.last_scan_time = data.get('last_scan_time')
 
-                    if self.current_device:
-                        logger.debug(f"Loaded saved device: {self.current_device.get('friendly_name', 'Unknown')}")
+                        if self.current_device:
+                            logger.debug(f"Loaded saved device: {self.current_device.get('friendly_name', 'Unknown')}")
 
-                    if self.cached_devices:
-                        logger.debug(f"Loaded {len(self.cached_devices)} cached devices from state file")
-                    else:
-                        logger.debug("No cached devices in state file")
+                        if self.cached_devices:
+                            logger.debug(f"Loaded {len(self.cached_devices)} cached devices from state file")
+                        else:
+                            logger.debug("No cached devices in state file")
+                    finally:
+                        # Release lock
+                        fcntl.flock(f.fileno(), fcntl.LOCK_UN)
             else:
                 logger.debug(f"State file {self.state_file} does not exist yet")
         except Exception as e:
@@ -48,7 +55,7 @@ class DeviceManager:
             self.last_scan_time = None
 
     def _save_state(self):
-        """Save device state to JSON file."""
+        """Save device state to JSON file with process-level locking."""
         try:
             # Ensure parent directory exists
             state_dir = os.path.dirname(self.state_file)
@@ -65,7 +72,14 @@ class DeviceManager:
             # Write to temporary file first, then rename (atomic operation)
             temp_file = f"{self.state_file}.tmp"
             with open(temp_file, 'w') as f:
-                json.dump(data, f, indent=2)
+                # Acquire exclusive lock for writing (blocks all other access)
+                fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+                try:
+                    json.dump(data, f, indent=2)
+                    f.flush()  # Ensure data is written to disk
+                    os.fsync(f.fileno())  # Force write to disk
+                finally:
+                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
 
             # Atomic rename
             os.replace(temp_file, self.state_file)

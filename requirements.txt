@@ -1,4 +1,8 @@
 flask==3.1.1
 pyyaml==6.0.2
 requests==2.32.4
+urllib3>=1.26.0,<3.0.0
 gunicorn==23.0.0
+
+# Optional dependencies for enhanced security
+# Flask-Limiter==3.5.0  # Uncomment to enable rate limiting

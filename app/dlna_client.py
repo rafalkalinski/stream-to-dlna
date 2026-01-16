@@ -4,7 +4,7 @@ import logging
 from typing import Any
 from xml.etree import ElementTree as ET
 
-import requests
+from app.http_client import http_client
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ class DLNAClient:
         }
 
         try:
-            response = requests.post(
+            response = http_client.post(
                 self.control_url,
                 data=envelope.encode('utf-8'),
                 headers=headers,
@@ -221,7 +221,7 @@ class DLNAClient:
         }
 
         try:
-            response = requests.post(
+            response = http_client.post(
                 self.connection_manager_url,
                 data=envelope.encode('utf-8'),
                 headers=headers,

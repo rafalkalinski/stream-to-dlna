@@ -1,10 +1,5 @@
 # DLNA Radio Streamer Configuration
 
-# DLNA device settings
-dlna:
-  # DLNA device address (IP address, hostname like panasonic.local, or domain)
-  host: "192.168.1.100"
-
 # Radio streaming settings
 radio:
   # Default radio stream URL (can be overridden via API)
@@ -34,3 +29,67 @@ streaming:
 # dlna_advanced:
 #   port: 8080         # DLNA control port (default: 8080)
 #   protocol: "http"   # Protocol: http or https (default: http)
+
+# Network timeouts (in seconds)
+timeouts:
+  http_request: 10        # HTTP requests timeout
+  stream_detection: 5     # Stream format detection timeout
+  device_discovery: 10    # SSDP device discovery timeout
+  ffmpeg_startup: 10      # FFmpeg process startup timeout
+
+# Security settings
+# WARNING: By default, ALL endpoints are OPEN without authentication!
+# This is suitable for trusted home networks only.
+# For production: ENABLE authentication and rate limiting!
+security:
+  # API Key Authentication
+  # Default: false (NO AUTH - all endpoints accessible)
+  # Set to true and provide api_key to protect state-changing endpoints:
+  #   POST /devices/select, POST /play, POST /stop
+  # Read-only endpoints remain public (health, status, devices list)
+  api_auth_enabled: false
+  # api_key: "your-secret-api-key-here"  # Generate with: openssl rand -hex 32
+
+  # Rate Limiting (requires: pip install Flask-Limiter==3.5.0)
+  # Default: false (NO LIMITS - can be abused)
+  # Set to true to limit request rate on ALL endpoints
+  rate_limit_enabled: false
+  # Format: "<count> per <unit>" where unit is: second, minute, hour, day, month, year
+  # Examples:
+  #   "100 per hour"   - max 100 requests per hour
+  #   "10 per minute"  - max 10 requests per minute
+  #   "1000 per day"   - max 1000 requests per day
+  #   "100 per day, 10 per hour"  - combined limits (most restrictive applies)
+  rate_limit_default: "100 per hour"
+
+# Performance settings
+# ADVANCED: Do not modify unless you understand the implications
+performance:
+  # Gunicorn workers - KEEP AT 1 to prevent race conditions with state file
+  # Changing this value may cause data corruption and playback issues
+  gunicorn_workers: 1
+
+  # Gunicorn threads - increase only if you have many concurrent API requests
+  # Most home users should keep the default value
+  gunicorn_threads: 4
+
+  # HTTP connection pool - ADVANCED: Only modify if you understand connection pooling
+  # These values affect outgoing HTTP connections to DLNA devices and streams
+  connection_pool_size: 10
+  connection_pool_maxsize: 20
+
+# FFmpeg settings
+# ADVANCED: Do not modify unless you understand FFmpeg internals
+ffmpeg:
+  # Chunk size for streaming - affects latency vs throughput tradeoff
+  # Lower values: less latency, more CPU overhead
+  # Higher values: more latency, less CPU overhead
+  chunk_size: 8192
+
+  # Maximum stderr buffer lines - only increase for FFmpeg debugging
+  # High values may cause memory issues if FFmpeg produces excessive errors
+  max_stderr_lines: 1000
+
+  # Protocol whitelist - SECURITY: restricts FFmpeg to safe protocols
+  # Do not add 'file' protocol unless you understand security implications
+  protocol_whitelist: "http,https,tcp,tls"
