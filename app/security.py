@@ -40,12 +40,12 @@ def init_rate_limiter(app, config):
         return None
 
 
-def require_api_key(config):
+def require_api_key(config_getter):
     """
     Decorator to require API key authentication.
 
     Args:
-        config: Application configuration
+        config_getter: Callable that returns application configuration
 
     Returns:
         Decorator function
@@ -53,6 +53,9 @@ def require_api_key(config):
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
+            # Get config object by calling the getter
+            config = config_getter()
+
             # Skip authentication if disabled
             if not config.api_auth_enabled:
                 return f(*args, **kwargs)
