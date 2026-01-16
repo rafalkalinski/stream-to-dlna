@@ -108,6 +108,35 @@ curl -X POST http://localhost:5000/play \
 
 **Rationale:** Only state-changing operations require authentication. Read-only monitoring endpoints remain public for health checks and dashboards.
 
+#### Web Console Limitations
+
+**IMPORTANT:** The web console at `GET /` does NOT support API key authentication.
+
+When `api_auth_enabled: true`:
+- Web console loads normally (public endpoint)
+- Read-only features work (device list, status)
+- State-changing buttons FAIL with `401 Unauthorized`:
+  - "Select Device" button (POST /devices/select)
+  - "Play" button (POST /play)
+  - "Stop" button (POST /stop)
+
+**Solutions:**
+1. **Home network (default)**: Keep `api_auth_enabled: false` and use web console freely
+2. **Production**: Enable authentication and use `curl` or API clients:
+   ```bash
+   # Select device
+   curl -X POST "http://localhost:5000/devices/select?ip=192.168.1.100" \
+     -H "X-API-Key: your-key"
+
+   # Play stream
+   curl -X POST "http://localhost:5000/play?streamUrl=http://stream-url.com" \
+     -H "X-API-Key: your-key"
+
+   # Stop playback
+   curl -X POST http://localhost:5000/stop \
+     -H "X-API-Key: your-key"
+   ```
+
 #### Rate Limiting (Recommended)
 
 Enable rate limiting to prevent API abuse:
@@ -123,6 +152,16 @@ security:
   rate_limit_enabled: true
   rate_limit_default: "100 per hour"  # Adjust based on your needs
 ```
+
+**Rate Limit Formats:**
+- Single limit: `"100 per hour"`, `"10 per minute"`, `"1000 per day"`
+- Combined limits: `"100 per day, 10 per hour"` (most restrictive applies)
+- Supported units: `second`, `minute`, `hour`, `day`, `month`, `year`
+
+**Recommended values:**
+- Home network: `"100 per hour"` or `"1000 per day"`
+- Public exposure: `"10 per minute"` and `"100 per hour"`
+- High traffic: `"1000 per day, 100 per hour"`
 
 **Important:** Rate limiting applies to **ALL endpoints** when enabled, including public ones.
 
