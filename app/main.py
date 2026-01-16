@@ -212,9 +212,13 @@ def _background_device_scan():
     """Background thread to scan for devices on startup."""
     global device_manager
 
+    devices_found_via_callback = []
+
     def on_device_found(device_info):
         """Callback to add device to cache immediately when found."""
         try:
+            logger.info(f"Background scan found device: {device_info.get('friendly_name', 'Unknown')} at {device_info.get('ip')}")
+
             # Get current cache
             cached = device_manager.get_cached_devices()
 
@@ -223,19 +227,31 @@ def _background_device_scan():
             if not device_exists:
                 cached.append(device_info)
                 device_manager.update_device_cache(cached)
-                logger.info(f"Added device to cache: {device_info.get('friendly_name', 'Unknown')}")
+                devices_found_via_callback.append(device_info)
+                logger.info(f"Added device to cache via callback: {device_info.get('friendly_name', 'Unknown')}")
+            else:
+                logger.debug(f"Device {device_info.get('friendly_name', 'Unknown')} already in cache")
         except Exception as e:
-            logger.error(f"Failed to add device to cache: {e}")
+            logger.error(f"Failed to add device to cache in callback: {e}", exc_info=True)
 
     try:
-        logger.info("Starting background device scan")
+        logger.info("Starting background device scan (10s timeout)")
         devices = SSDPDiscovery.discover(timeout=10, device_callback=on_device_found)
+
+        logger.info(f"Background scan discovery returned {len(devices)} devices")
+        logger.info(f"Callback was invoked for {len(devices_found_via_callback)} devices")
+
         # Final update with all devices (in case callback failed for some)
         if devices:
             device_manager.update_device_cache(devices)
-            logger.info(f"Background scan complete. Found {len(devices)} devices")
+            logger.info(f"Background scan complete. Final cache update with {len(devices)} devices")
+
+            # Log device names for debugging
+            for dev in devices:
+                logger.info(f"  - {dev.get('friendly_name', 'Unknown')} ({dev.get('ip')})")
         else:
-            logger.info("Background scan complete. No devices found")
+            logger.warning("Background scan complete. No devices found - this may indicate network issues")
+
     except Exception as e:
         logger.error(f"Background device scan failed: {e}", exc_info=True)
 
@@ -592,7 +608,15 @@ def status():
 
         dlna_info = None
         if dlna_client:
-            dlna_info = dlna_client.get_transport_info()
+            dlna_info = dlna_client.get_transport_info(retries=2)
+
+            # If DLNA query failed but streamer is running, provide fallback info
+            if dlna_info is None and is_streaming:
+                logger.debug("DLNA query failed but streamer is running - using fallback status")
+                dlna_info = {
+                    'state': 'PLAYING',
+                    'status': 'UNKNOWN'
+                }
 
         # Get current device info
         current_device = device_manager.get_current_device()
