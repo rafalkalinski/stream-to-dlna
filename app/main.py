@@ -1,18 +1,19 @@
 """Main Flask application for DLNA Radio Streamer."""
 
 import logging
-import sys
-import socket
-import requests
 import re
+import socket
+import sys
 from urllib.parse import urlparse
-from flask import Flask, request, jsonify, render_template
+
+import requests
+from flask import Flask, jsonify, render_template, request
+
 from app.config import Config
+from app.device_manager import DeviceManager
+from app.discovery import SSDPDiscovery
 from app.dlna_client import DLNAClient
 from app.streamer import AudioStreamer, PassthroughStreamer
-from app.discovery import SSDPDiscovery
-from app.device_manager import DeviceManager
-from typing import Optional, Union
 
 # Configure logging
 logging.basicConfig(
@@ -62,10 +63,10 @@ def internal_error(error):
     }), 500
 
 # Global state
-config: Optional[Config] = None
-streamer: Optional[Union[AudioStreamer, PassthroughStreamer]] = None
-dlna_client: Optional[DLNAClient] = None
-device_manager: Optional[DeviceManager] = None
+config: Config | None = None
+streamer: AudioStreamer | PassthroughStreamer | None = None
+dlna_client: DLNAClient | None = None
+device_manager: DeviceManager | None = None
 
 
 def get_local_ip() -> str:
@@ -187,7 +188,7 @@ def _create_dlna_client_from_device(device_info: dict) -> DLNAClient:
     )
 
 
-def _detect_stream_format(stream_url: str) -> Optional[str]:
+def _detect_stream_format(stream_url: str) -> str | None:
     """
     Detect stream content type by making a HEAD request.
 

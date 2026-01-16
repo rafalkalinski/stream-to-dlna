@@ -1,7 +1,8 @@
 """Unit tests for input validation functions."""
 
 import pytest
-from app.main import validate_ip_address, validate_boolean_string, validate_stream_url
+
+from app.main import validate_boolean_string, validate_ip_address, validate_stream_url
 
 
 class TestValidateIPAddress:

@@ -1,8 +1,8 @@
 """Unit tests for DeviceManager."""
 
-import pytest
 import json
 import time
+
 from app.device_manager import DeviceManager
 
 
@@ -24,7 +24,7 @@ class TestDeviceManager:
         assert device_manager.current_device == sample_device
 
         # Verify saved to disk
-        with open(tmp_state_file, 'r') as f:
+        with open(tmp_state_file) as f:
             data = json.load(f)
             assert data['current_device']['id'] == sample_device['id']
             assert data['current_device']['friendly_name'] == sample_device['friendly_name']
@@ -52,7 +52,7 @@ class TestDeviceManager:
         assert device_manager.get_current_device() is None
 
         # Verify saved to disk
-        with open(tmp_state_file, 'r') as f:
+        with open(tmp_state_file) as f:
             data = json.load(f)
             assert data['current_device'] is None
 

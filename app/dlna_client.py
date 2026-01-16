@@ -1,9 +1,10 @@
 """DLNA/UPnP client for controlling media renderers."""
 
-import requests
 import logging
-from typing import Optional, List, Dict, Any
+from typing import Any
 from xml.etree import ElementTree as ET
+
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -12,16 +13,16 @@ class DLNAClient:
     """Simple DLNA/UPnP AVTransport client."""
 
     def __init__(self, device_host: str, device_port: int = 55000, protocol: str = "http",
-                 control_url: Optional[str] = None, connection_manager_url: Optional[str] = None):
+                 control_url: str | None = None, connection_manager_url: str | None = None):
         self.device_host = device_host
         self.device_port = device_port
         self.protocol = protocol
         self.control_url = control_url or f"{protocol}://{device_host}:{device_port}/AVTransport/ctrl"
         self.connection_manager_url = connection_manager_url or f"{protocol}://{device_host}:{device_port}/ConnectionManager/ctrl"
         self.instance_id = "0"
-        self.capabilities: Optional[Dict[str, Any]] = None
+        self.capabilities: dict[str, Any] | None = None
 
-    def _send_soap_request(self, action: str, arguments: dict = None) -> Optional[str]:
+    def _send_soap_request(self, action: str, arguments: dict = None) -> str | None:
         """Send SOAP request to DLNA device."""
         arguments = arguments or {}
 
@@ -126,7 +127,7 @@ class DLNAClient:
         response = self._send_soap_request('Pause')
         return response is not None
 
-    def get_transport_info(self, retries: int = 2) -> Optional[dict]:
+    def get_transport_info(self, retries: int = 2) -> dict | None:
         """
         Get current transport state with retry logic.
 
@@ -152,7 +153,6 @@ class DLNAClient:
                     return None
 
                 root = ET.fromstring(response)
-                ns = {'s': 'http://schemas.xmlsoap.org/soap/envelope/'}
 
                 state_elem = root.find('.//CurrentTransportState')
                 status_elem = root.find('.//CurrentTransportStatus')
@@ -196,7 +196,7 @@ class DLNAClient:
 
         return self.play()
 
-    def get_protocol_info(self) -> Optional[str]:
+    def get_protocol_info(self) -> str | None:
         """
         Get supported protocols and formats from the device.
         Uses ConnectionManager:GetProtocolInfo.
@@ -246,7 +246,7 @@ class DLNAClient:
             logger.warning(f"Failed to get protocol info: {e}")
             return None
 
-    def detect_capabilities(self) -> Dict[str, Any]:
+    def detect_capabilities(self) -> dict[str, Any]:
         """
         Detect device capabilities including supported audio formats.
 

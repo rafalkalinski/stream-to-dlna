@@ -4,8 +4,8 @@ import json
 import logging
 import os
 import time
-from typing import Optional, Dict, Any, List
 from threading import Lock
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -15,9 +15,9 @@ class DeviceManager:
 
     def __init__(self, state_file: str = "/app/state.json"):
         self.state_file = state_file
-        self.current_device: Optional[Dict[str, Any]] = None
-        self.cached_devices: List[Dict[str, Any]] = []  # Cache of discovered devices
-        self.last_scan_time: Optional[float] = None
+        self.current_device: dict[str, Any] | None = None
+        self.cached_devices: list[dict[str, Any]] = []  # Cache of discovered devices
+        self.last_scan_time: float | None = None
         self.lock = Lock()
         logger.info(f"DeviceManager initialized with state file: {self.state_file}")
         self._load_state()
@@ -26,7 +26,7 @@ class DeviceManager:
         """Load device state from JSON file."""
         try:
             if os.path.exists(self.state_file):
-                with open(self.state_file, 'r') as f:
+                with open(self.state_file) as f:
                     data = json.load(f)
                     self.current_device = data.get('current_device')
                     self.cached_devices = data.get('cached_devices', [])
@@ -75,7 +75,7 @@ class DeviceManager:
             logger.error(f"Failed to save state file {self.state_file}: {e}", exc_info=True)
             # Don't re-raise - allow operation to continue with in-memory state only
 
-    def select_device(self, device_info: Dict[str, Any]):
+    def select_device(self, device_info: dict[str, Any]):
         """
         Select a device as the current active device.
 
@@ -87,7 +87,7 @@ class DeviceManager:
             self._save_state()
             logger.info(f"Selected device: {device_info.get('friendly_name', 'Unknown')}")
 
-    def get_current_device(self) -> Optional[Dict[str, Any]]:
+    def get_current_device(self) -> dict[str, Any] | None:
         """
         Get the currently selected device.
 
@@ -112,7 +112,7 @@ class DeviceManager:
         with self.lock:
             return self.current_device is not None
 
-    def update_device_cache(self, devices: List[Dict[str, Any]]):
+    def update_device_cache(self, devices: list[dict[str, Any]]):
         """
         Update the cache of discovered devices.
 
@@ -129,7 +129,7 @@ class DeviceManager:
                 logger.error(f"Failed to persist device cache to disk: {e}")
                 # Don't re-raise - cache is still updated in memory
 
-    def get_cached_devices(self) -> List[Dict[str, Any]]:
+    def get_cached_devices(self) -> list[dict[str, Any]]:
         """
         Get cached devices.
 
@@ -141,7 +141,7 @@ class DeviceManager:
             self._load_state()
             return self.cached_devices.copy()
 
-    def get_cache_age(self) -> Optional[float]:
+    def get_cache_age(self) -> float | None:
         """
         Get age of device cache in seconds.
 
@@ -155,7 +155,7 @@ class DeviceManager:
                 return None
             return time.time() - self.last_scan_time
 
-    def find_device_in_cache(self, ip: str = None) -> Optional[Dict[str, Any]]:
+    def find_device_in_cache(self, ip: str = None) -> dict[str, Any] | None:
         """
         Find device in cache by IP address.
 

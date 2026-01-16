@@ -1,12 +1,10 @@
 """Pytest configuration and shared fixtures."""
 
+
 import pytest
-import tempfile
-import os
-from pathlib import Path
-from unittest.mock import Mock, MagicMock
-from app.main import app as flask_app
+
 from app.device_manager import DeviceManager
+from app.main import app as flask_app
 
 
 @pytest.fixture
