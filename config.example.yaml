@@ -34,3 +34,39 @@ streaming:
 # dlna_advanced:
 #   port: 8080         # DLNA control port (default: 8080)
 #   protocol: "http"   # Protocol: http or https (default: http)
+
+# Network timeouts (in seconds)
+timeouts:
+  http_request: 10        # HTTP requests timeout
+  stream_detection: 5     # Stream format detection timeout
+  device_discovery: 10    # SSDP device discovery timeout
+  ffmpeg_startup: 10      # FFmpeg process startup timeout
+
+# Security settings
+security:
+  # Enable rate limiting (requires Flask-Limiter)
+  rate_limit_enabled: false
+  rate_limit_default: "100 per hour"  # Default rate limit for all endpoints
+
+  # Enable API authentication (requires API key in X-API-Key header)
+  api_auth_enabled: false
+  # api_key: "your-secret-api-key-here"  # Uncomment and set your key
+
+# Performance settings
+performance:
+  # Gunicorn workers (recommended: 1 for consistent state management)
+  gunicorn_workers: 1
+  # Gunicorn threads per worker
+  gunicorn_threads: 4
+  # HTTP connection pool size for outgoing requests
+  connection_pool_size: 10
+  connection_pool_maxsize: 20
+
+# FFmpeg settings
+ffmpeg:
+  # Chunk size for streaming (bytes)
+  chunk_size: 8192
+  # Maximum stderr buffer lines to prevent memory leak
+  max_stderr_lines: 1000
+  # Protocol whitelist for security (http,https,tcp,tls,file)
+  protocol_whitelist: "http,https,tcp,tls"

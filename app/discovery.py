@@ -5,7 +5,7 @@ import socket
 from urllib.parse import urlparse
 from xml.etree import ElementTree as ET
 
-import requests
+from app.http_client import http_client
 
 logger = logging.getLogger(__name__)
 
@@ -216,7 +216,7 @@ class SSDPDiscovery:
             Dictionary with device information or None if failed
         """
         try:
-            response = requests.get(location, timeout=5)
+            response = http_client.get(location, timeout=5)
             if response.status_code != 200:
                 logger.warning(f"Failed to fetch device description from {location}")
                 return None
