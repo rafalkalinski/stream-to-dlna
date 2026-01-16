@@ -53,12 +53,8 @@ class DeviceManager:
             # Ensure parent directory exists
             state_dir = os.path.dirname(self.state_file)
             if state_dir and not os.path.exists(state_dir):
-                try:
-                    os.makedirs(state_dir, exist_ok=True)
-                    logger.info(f"Created state directory: {state_dir}")
-                except Exception as e:
-                    logger.error(f"Failed to create state directory {state_dir}: {e}")
-                    raise
+                os.makedirs(state_dir, exist_ok=True)
+                logger.info(f"Created state directory: {state_dir}")
 
             data = {
                 'current_device': self.current_device,
@@ -77,8 +73,7 @@ class DeviceManager:
             logger.debug(f"Device state saved to {self.state_file} ({len(self.cached_devices)} cached devices)")
         except Exception as e:
             logger.error(f"Failed to save state file {self.state_file}: {e}", exc_info=True)
-            # Re-raise to make failures more visible
-            raise
+            # Don't re-raise - allow operation to continue with in-memory state only
 
     def select_device(self, device_info: Dict[str, Any]):
         """

@@ -306,9 +306,9 @@ def devices():
     - timeout: Scan timeout in seconds when force_scan=true (default: 5, max: 15)
     """
     try:
-        force_scan_param = request.args.get('force_scan', default='false', type=str).lower()
+        force_scan_param = request.args.get('force_scan', default='false', type=str)
 
-        # Strict validation: only 'true' or 'false' allowed
+        # Strict validation: only 'true' or 'false' allowed (case-sensitive)
         if not validate_boolean_string(force_scan_param):
             return jsonify({
                 'message': f'force_scan must be "true" or "false", got: {force_scan_param}'
