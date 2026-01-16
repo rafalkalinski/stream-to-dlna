@@ -4,11 +4,15 @@
 [![codecov](https://codecov.io/gh/rafalkalinski/stream-to-dlna/branch/main/graph/badge.svg)](https://codecov.io/gh/rafalkalinski/stream-to-dlna)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Docker](https://img.shields.io/docker/pulls/erkalina/stream-to-dlna.svg)](https://hub.docker.com/r/erkalina/stream-to-dlna)
+[![Version](https://img.shields.io/badge/version-v0.2-blue.svg)](CHANGELOG.md)
 
 Stream internet radio to DLNA devices with automatic format detection and smart transcoding.
 
+**Latest:** v0.2 adds development console, comprehensive testing, and improved reliability. See [CHANGELOG](CHANGELOG.md) for details.
+
 ## Features
 
+- **Interactive Web Console** at `http://localhost:5000` - GUI for device management and API testing
 - Network discovery with SSDP/UPnP
 - Smart transcoding: passthrough when device supports native format, FFmpeg when transcoding needed
 - Multi-device support with persistent device selection
@@ -59,7 +63,7 @@ open http://localhost:5000
 curl http://localhost:5000/devices?force_scan=true
 
 # Select device
-curl -X POST "http://localhost:5000/devices/select?ip=192.168.1.100"
+curl -X POST http://localhost:5000/devices/select?ip=192.168.1.100
 
 # Play radio
 curl -X POST http://localhost:5000/play
