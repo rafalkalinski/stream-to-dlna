@@ -65,7 +65,7 @@ Or use CLI/API directly:
 curl http://localhost:5000/devices?force_scan=true
 
 # Select device by IP
-curl -X POST "http://localhost:5000/devices/select?ip=192.168.1.100"
+curl -X POST http://localhost:5000/devices/select?ip=192.168.1.100
 
 # Start playback
 curl -X POST http://localhost:5000/play?streamUrl=https://stream.url
