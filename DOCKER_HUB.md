@@ -77,14 +77,6 @@ curl http://localhost:5000/status
 curl -X POST http://localhost:5000/stop
 ```
 
-## Docker Networking
-
-For SSDP multicast to work:
-- Use `network_mode: host` (simplest)
-- Or use macvlan network (recommended for production)
-
-See repository README for detailed networking configuration.
-
 ## Tested Devices
 
 - Panasonic SC-PMX9

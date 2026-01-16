@@ -12,6 +12,7 @@ Stream internet radio to DLNA devices with automatic format detection and smart 
 
 ## Features
 
+- **Interactive Web Console** at `http://localhost:5000` - GUI for device management and API testing
 - Network discovery with SSDP/UPnP
 - Smart transcoding: passthrough when device supports native format, FFmpeg when transcoding needed
 - Multi-device support with persistent device selection
