@@ -19,6 +19,7 @@ class DeviceManager:
         self.cached_devices: List[Dict[str, Any]] = []  # Cache of discovered devices
         self.last_scan_time: Optional[float] = None
         self.lock = Lock()
+        logger.info(f"DeviceManager initialized with state file: {self.state_file}")
         self._load_state()
 
     def _load_state(self):
@@ -30,12 +31,18 @@ class DeviceManager:
                     self.current_device = data.get('current_device')
                     self.cached_devices = data.get('cached_devices', [])
                     self.last_scan_time = data.get('last_scan_time')
+
                     if self.current_device:
                         logger.debug(f"Loaded saved device: {self.current_device.get('friendly_name', 'Unknown')}")
+
+                    if self.cached_devices:
+                        logger.debug(f"Loaded {len(self.cached_devices)} cached devices from state file")
+                    else:
+                        logger.debug("No cached devices in state file")
             else:
                 logger.debug(f"State file {self.state_file} does not exist yet")
         except Exception as e:
-            logger.warning(f"Failed to load state file: {e}")
+            logger.warning(f"Failed to load state file {self.state_file}: {e}")
             self.current_device = None
             self.cached_devices = []
             self.last_scan_time = None
@@ -43,16 +50,35 @@ class DeviceManager:
     def _save_state(self):
         """Save device state to JSON file."""
         try:
+            # Ensure parent directory exists
+            state_dir = os.path.dirname(self.state_file)
+            if state_dir and not os.path.exists(state_dir):
+                try:
+                    os.makedirs(state_dir, exist_ok=True)
+                    logger.info(f"Created state directory: {state_dir}")
+                except Exception as e:
+                    logger.error(f"Failed to create state directory {state_dir}: {e}")
+                    raise
+
             data = {
                 'current_device': self.current_device,
                 'cached_devices': self.cached_devices,
                 'last_scan_time': self.last_scan_time
             }
-            with open(self.state_file, 'w') as f:
+
+            # Write to temporary file first, then rename (atomic operation)
+            temp_file = f"{self.state_file}.tmp"
+            with open(temp_file, 'w') as f:
                 json.dump(data, f, indent=2)
-            logger.debug("Device state saved to file")
+
+            # Atomic rename
+            os.replace(temp_file, self.state_file)
+
+            logger.debug(f"Device state saved to {self.state_file} ({len(self.cached_devices)} cached devices)")
         except Exception as e:
-            logger.error(f"Failed to save state file: {e}")
+            logger.error(f"Failed to save state file {self.state_file}: {e}", exc_info=True)
+            # Re-raise to make failures more visible
+            raise
 
     def select_device(self, device_info: Dict[str, Any]):
         """
@@ -101,8 +127,12 @@ class DeviceManager:
         with self.lock:
             self.cached_devices = devices
             self.last_scan_time = time.time()
-            self._save_state()
-            logger.info(f"Device cache updated with {len(devices)} devices")
+            try:
+                self._save_state()
+                logger.info(f"Device cache updated with {len(devices)} devices, saved to {self.state_file}")
+            except Exception as e:
+                logger.error(f"Failed to persist device cache to disk: {e}")
+                # Don't re-raise - cache is still updated in memory
 
     def get_cached_devices(self) -> List[Dict[str, Any]]:
         """

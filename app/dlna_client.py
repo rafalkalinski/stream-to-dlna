@@ -126,27 +126,64 @@ class DLNAClient:
         response = self._send_soap_request('Pause')
         return response is not None
 
-    def get_transport_info(self) -> Optional[dict]:
-        """Get current transport state."""
-        response = self._send_soap_request('GetTransportInfo')
+    def get_transport_info(self, retries: int = 2) -> Optional[dict]:
+        """
+        Get current transport state with retry logic.
 
-        if not response:
-            return None
+        Args:
+            retries: Number of retry attempts on failure (default: 2)
 
-        try:
-            root = ET.fromstring(response)
-            ns = {'s': 'http://schemas.xmlsoap.org/soap/envelope/'}
+        Returns:
+            Dictionary with state and status, or None if all attempts fail
+        """
+        last_error = None
 
-            state_elem = root.find('.//CurrentTransportState')
-            status_elem = root.find('.//CurrentTransportStatus')
+        for attempt in range(retries + 1):
+            try:
+                response = self._send_soap_request('GetTransportInfo')
 
-            return {
-                'state': state_elem.text if state_elem is not None else 'UNKNOWN',
-                'status': status_elem.text if status_elem is not None else 'UNKNOWN'
-            }
-        except ET.ParseError as e:
-            logger.error(f"Failed to parse transport info: {e}")
-            return None
+                if not response:
+                    last_error = "No response from device"
+                    if attempt < retries:
+                        logger.debug(f"GetTransportInfo attempt {attempt + 1} failed, retrying...")
+                        import time
+                        time.sleep(0.3)
+                        continue
+                    return None
+
+                root = ET.fromstring(response)
+                ns = {'s': 'http://schemas.xmlsoap.org/soap/envelope/'}
+
+                state_elem = root.find('.//CurrentTransportState')
+                status_elem = root.find('.//CurrentTransportStatus')
+
+                result = {
+                    'state': state_elem.text if state_elem is not None else 'UNKNOWN',
+                    'status': status_elem.text if status_elem is not None else 'UNKNOWN'
+                }
+
+                # Success - return immediately
+                if attempt > 0:
+                    logger.debug(f"GetTransportInfo succeeded on attempt {attempt + 1}")
+                return result
+
+            except ET.ParseError as e:
+                last_error = f"Parse error: {e}"
+                if attempt < retries:
+                    logger.debug(f"GetTransportInfo parse error on attempt {attempt + 1}, retrying...")
+                    import time
+                    time.sleep(0.3)
+                    continue
+            except Exception as e:
+                last_error = str(e)
+                if attempt < retries:
+                    logger.debug(f"GetTransportInfo error on attempt {attempt + 1}: {e}, retrying...")
+                    import time
+                    time.sleep(0.3)
+                    continue
+
+        logger.debug(f"GetTransportInfo failed after {retries + 1} attempts: {last_error}")
+        return None
 
     def play_url(self, url: str) -> bool:
         """Set URI and start playback in one call."""
