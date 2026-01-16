@@ -1,8 +1,9 @@
 """Configuration management."""
 
-import yaml
 import os
-from typing import Dict, Any
+from typing import Any
+
+import yaml
 
 
 class Config:
@@ -10,13 +11,13 @@ class Config:
 
     def __init__(self, config_path: str = "config.yaml"):
         self.config_path = config_path
-        self.data: Dict[str, Any] = {}
+        self.data: dict[str, Any] = {}
         self.load()
 
     def load(self):
         """Load configuration from YAML file."""
         if os.path.exists(self.config_path):
-            with open(self.config_path, 'r') as f:
+            with open(self.config_path) as f:
                 self.data = yaml.safe_load(f) or {}
         else:
             self.data = {}
@@ -33,21 +34,6 @@ class Config:
             if value is None:
                 return default
         return value
-
-    @property
-    def dlna_host(self) -> str:
-        """Get DLNA device host (IP, hostname, or domain)."""
-        return self.get('dlna.host', '192.168.1.100')
-
-    @property
-    def dlna_port(self) -> int:
-        """Get DLNA device port."""
-        return self.get('dlna_advanced.port', 8080)
-
-    @property
-    def dlna_protocol(self) -> str:
-        """Get DLNA device protocol (http or https)."""
-        return self.get('dlna_advanced.protocol', 'http')
 
     @property
     def default_stream_url(self) -> str:

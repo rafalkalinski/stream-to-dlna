@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DLNA Radio Streamer - Dev Console</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+        .left-panel {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            min-width: 200px;
+        }
+        .splitter {
+            width: 5px;
+            background: #30363d;
+            cursor: col-resize;
+            flex-shrink: 0;
+            transition: background 0.2s;
+        }
+        .splitter:hover {
+            background: #58a6ff;
+        }
+        .splitter.dragging {
+            background: #58a6ff;
+        }
+        .right-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            min-width: 200px;
+        }
+        h1 {
+            margin-bottom: 8px;
+            color: #58a6ff;
+            font-size: 24px;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            background: #0d1117;
+            padding-bottom: 5px;
+            z-index: 10;
+        }
+        .header-links {
+            margin-bottom: 15px;
+            font-size: 13px;
+            position: sticky;
+            top: 37px;
+            background: #0d1117;
+            padding-bottom: 10px;
+            z-index: 10;
+        }
+        .header-links a {
+            color: #58a6ff;
+            text-decoration: none;
+            margin-right: 15px;
+        }
+        .header-links a:hover {
+            text-decoration: underline;
+        }
+        .header-links svg {
+            vertical-align: middle;
+            margin-right: 4px;
+        }
+        h2 {
+            margin: 20px 0 10px 0;
+            color: #f0883e;
+            font-size: 18px;
+            font-weight: 600;
+            position: sticky;
+            top: 44px;
+            background: #0d1117;
+            padding: 5px 0;
+        }
+        .api-section {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .endpoint {
+            color: #a5d6ff;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .method {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-right: 8px;
+        }
+        .get { background: #238636; color: #ffffff; }
+        .post { background: #1f6feb; color: #ffffff; }
+        .description {
+            color: #8b949e;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        .form-group {
+            margin: 10px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #c9d1d9;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 8px 12px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #c9d1d9;
+            font-family: inherit;
+            font-size: 14px;
+        }
+        input[type="text"]:focus, input[type="number"]:focus {
+            outline: none;
+            border-color: #58a6ff;
+        }
+        button {
+            background: #238636;
+            color: #ffffff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            margin-right: 5px;
+        }
+        button:hover { background: #2ea043; }
+        button:disabled {
+            background: #21262d;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        .radio-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 5px;
+            align-items: center;
+        }
+        .radio-group label {
+            display: inline-flex;
+            align-items: center;
+            cursor: pointer;
+            margin-bottom: 0;
+        }
+        .radio-group input[type="radio"] {
+            margin-right: 5px;
+            cursor: pointer;
+        }
+        .timeout-inline {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-left: 20px;
+        }
+        .timeout-inline input[type="number"] {
+            width: 80px;
+            padding: 4px 8px;
+        }
+        .timeout-inline label {
+            margin-bottom: 0;
+            font-size: 13px;
+        }
+        #timeout-container {
+            display: none;
+        }
+        #timeout-container.visible {
+            display: inline-flex;
+        }
+        .output-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        .output-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            position: sticky;
+            top: 0;
+            background: #0d1117;
+            padding-bottom: 10px;
+            z-index: 10;
+        }
+        .output-header h2 {
+            margin: 0;
+            position: static;
+        }
+        .clear-btn {
+            background: #21262d;
+            padding: 4px 12px;
+            font-size: 12px;
+        }
+        .clear-btn:hover { background: #30363d; }
+        #output {
+            flex: 1;
+            background: #010409;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 15px;
+            font-size: 13px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow-y: auto;
+            font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+        }
+        .timestamp { color: #7ee787; }
+        .error { color: #f85149; }
+        .success { color: #3fb950; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="left-panel">
+            <h1>DLNA Radio Streamer</h1>
+            <div class="header-links">
+                <a href="https://github.com/rafalkalinski/stream-to-dlna" target="_blank">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                    </svg>
+                    GitHub
+                </a>
+                <a href="https://hub.docker.com/repository/docker/erkalina/stream-to-dlna" target="_blank">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M6.738 8.706H5.5v-1.5h1.238v1.5zm1.746 0H7.246v-1.5h1.238v1.5zm1.746 0H8.992v-1.5h1.238v1.5zm2.984-1.5v1.5h1.37l1.416-1.5h-2.786zM6.738 6.956H5.5v-1.5h1.238v1.5zm1.746 0H7.246v-1.5h1.238v1.5zm1.746 0H8.992v-1.5h1.238v1.5zm1.746 0h-1.238v-1.5h1.238v1.5z"/>
+                        <path d="M15.46 7.5c-.177-.16-.37-.305-.573-.435a5.08 5.08 0 0 0-.743-.37 6.986 6.986 0 0 0-2.216-.508 6.976 6.976 0 0 0-.66-.027c-.15-.005-.3-.008-.451-.008H9.23V5H8.012v1.152h-1.22V5H5.573v1.152h-1.39V5H2.965v1.152H2v1.25h.965v1.206H2v1.25h.965v1.206H2v1.25h.965v1.206H2v1.25h.965V15h10.26c.884 0 1.662-.54 1.971-1.369.088-.236.125-.487.125-.737V8.12a.876.876 0 0 0-.86-.62z"/>
+                    </svg>
+                    Docker Hub
+                </a>
+            </div>
+
+            <h2>Device Discovery</h2>
+
+            <div class="api-section">
+                <div class="endpoint">
+                    <span class="method get">GET</span> /devices
+                </div>
+                <div class="description">Get cached list of discovered devices</div>
+                <div class="form-group">
+                    <label>Force Scan</label>
+                    <div class="radio-group">
+                        <label>
+                            <input type="radio" name="force_scan" value="false" checked onchange="toggleTimeout()"> false
+                        </label>
+                        <label>
+                            <input type="radio" name="force_scan" value="true" onchange="toggleTimeout()"> true
+                        </label>
+                        <div id="timeout-container" class="timeout-inline">
+                            <label>Timeout (seconds):</label>
+                            <input type="number" id="scan_timeout" value="5" min="1" max="15">
+                        </div>
+                    </div>
+                </div>
+                <button id="btn-get-devices" onclick="getDevices()">Get Devices</button>
+            </div>
+
+            <div class="api-section">
+                <div class="endpoint">
+                    <span class="method post">POST</span> /devices/select
+                </div>
+                <div class="description">Select device by IP address</div>
+                <div class="form-group">
+                    <label>Device IP Address</label>
+                    <input type="text" id="select_ip" placeholder="192.168.1.100">
+                </div>
+                <button id="btn-select-device" onclick="selectDevice()">Select Device</button>
+            </div>
+
+            <div class="api-section">
+                <div class="endpoint">
+                    <span class="method get">GET</span> /devices/current
+                </div>
+                <div class="description">Get currently selected device</div>
+                <button id="btn-current-device" onclick="getCurrentDevice()">Get Current Device</button>
+            </div>
+
+            <h2>Playback Control</h2>
+
+            <div class="api-section">
+                <div class="endpoint">
+                    <span class="method post">POST</span> /play
+                </div>
+                <div class="description">Start playback with smart transcoding</div>
+                <div class="form-group">
+                    <label>Stream URL (optional, uses default if empty)</label>
+                    <input type="text" id="play_url" value="{{ default_stream_url }}" placeholder="http://stream-url.com/radio">
+                </div>
+                <button id="btn-play" onclick="play()">Play</button>
+            </div>
+
+            <div class="api-section">
+                <div class="endpoint">
+                    <span class="method post">POST</span> /stop
+                </div>
+                <div class="description">Stop playback</div>
+                <button id="btn-stop" onclick="stop()">Stop</button>
+            </div>
+
+            <h2>Status</h2>
+
+            <div class="api-section">
+                <div class="endpoint">
+                    <span class="method get">GET</span> /status
+                </div>
+                <div class="description">Get current playback and device status</div>
+                <button id="btn-status" onclick="getStatus()">Get Status</button>
+            </div>
+
+            <div class="api-section">
+                <div class="endpoint">
+                    <span class="method get">GET</span> /health
+                </div>
+                <div class="description">Health check</div>
+                <button id="btn-health" onclick="getHealth()">Health Check</button>
+            </div>
+        </div>
+
+        <div class="splitter" id="splitter"></div>
+
+        <div class="right-panel">
+            <div class="output-container">
+                <div class="output-header">
+                    <h2>Output</h2>
+                    <button class="clear-btn" onclick="clearOutput()">Clear</button>
+                </div>
+                <div id="output">Waiting for requests...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const output = document.getElementById('output');
+
+        function clearOutput() {
+            output.textContent = 'Output cleared.';
+        }
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const classes = { error: 'error', success: 'success' };
+            const className = classes[type] || '';
+
+            const div = document.createElement('div');
+            div.innerHTML = `<span class="timestamp">[${timestamp}]</span> <span class="${className}">${escapeHtml(message)}</span>`;
+            output.appendChild(div);
+
+            // Force scroll after DOM update
+            setTimeout(() => {
+                output.scrollTop = output.scrollHeight;
+            }, 0);
+        }
+
+        function escapeHtml(text) {
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return text.toString().replace(/[&<>"']/g, m => map[m]);
+        }
+
+        async function makeRequest(method, endpoint, button) {
+            // Set loading state
+            const originalText = button.textContent;
+            button.disabled = true;
+            button.textContent = 'Loading...';
+
+            try {
+                log(`${method} ${endpoint}`, 'info');
+
+                const response = await fetch(endpoint, { method: method });
+
+                // Try to parse JSON
+                let data;
+                try {
+                    data = await response.json();
+                } catch (parseError) {
+                    // Not JSON - likely HTML error page from invalid input
+                    const contentType = response.headers.get('content-type') || 'unknown';
+                    log(`Non-JSON response (${response.status}): ${contentType}`, 'info');
+                    return;
+                }
+
+                if (response.ok) {
+                    log(`Response (${response.status}): ${JSON.stringify(data, null, 2)}`, 'success');
+                } else {
+                    // Check if it's a validation message or actual error
+                    const logType = data.error ? 'error' : 'info';
+                    log(`Response (${response.status}): ${JSON.stringify(data, null, 2)}`, logType);
+                }
+            } catch (error) {
+                // Real network errors (connection refused, timeout, etc.)
+                log(`Network error: ${error.message}`, 'error');
+            } finally {
+                // Restore button state
+                button.disabled = false;
+                button.textContent = originalText;
+            }
+        }
+
+        function getDevices() {
+            const force = document.querySelector('input[name="force_scan"]:checked').value;
+            const timeout = document.getElementById('scan_timeout').value || '5';
+            let endpoint = `/devices?force_scan=${encodeURIComponent(force)}`;
+            if (force === 'true') {
+                endpoint += `&timeout=${encodeURIComponent(timeout)}`;
+            }
+            const button = document.getElementById('btn-get-devices');
+            makeRequest('GET', endpoint, button);
+        }
+
+        function toggleTimeout() {
+            const forceScan = document.querySelector('input[name="force_scan"]:checked').value;
+            const timeoutContainer = document.getElementById('timeout-container');
+            if (forceScan === 'true') {
+                timeoutContainer.classList.add('visible');
+            } else {
+                timeoutContainer.classList.remove('visible');
+            }
+        }
+
+        function selectDevice() {
+            const ip = document.getElementById('select_ip').value.trim();
+            if (!ip) {
+                log('IP address is required', 'info');
+                return;
+            }
+            const button = document.getElementById('btn-select-device');
+            makeRequest('POST', `/devices/select?ip=${encodeURIComponent(ip)}`, button);
+        }
+
+        function getCurrentDevice() {
+            const button = document.getElementById('btn-current-device');
+            makeRequest('GET', '/devices/current', button);
+        }
+
+        function play() {
+            const url = document.getElementById('play_url').value.trim();
+            const endpoint = url ? `/play?streamUrl=${encodeURIComponent(url)}` : '/play';
+            const button = document.getElementById('btn-play');
+            makeRequest('POST', endpoint, button);
+        }
+
+        function stop() {
+            const button = document.getElementById('btn-stop');
+            makeRequest('POST', '/stop', button);
+        }
+
+        function getStatus() {
+            const button = document.getElementById('btn-status');
+            makeRequest('GET', '/status', button);
+        }
+
+        function getHealth() {
+            const button = document.getElementById('btn-health');
+            makeRequest('GET', '/health', button);
+        }
+
+        // Resizable splitter
+        (function() {
+            const splitter = document.getElementById('splitter');
+            const leftPanel = document.querySelector('.left-panel');
+            const rightPanel = document.querySelector('.right-panel');
+            const container = document.querySelector('.container');
+
+            let isResizing = false;
+            const GRAB_MARGIN = 10; // px margin around splitter for easier grabbing
+
+            // Load saved position from localStorage
+            function loadPosition() {
+                const savedRatio = localStorage.getItem('splitterPosition');
+                if (savedRatio) {
+                    const ratio = parseFloat(savedRatio);
+                    leftPanel.style.flex = `${ratio} 0 0`;
+                    rightPanel.style.flex = `${1 - ratio} 0 0`;
+                }
+            }
+
+            // Save position to localStorage
+            function savePosition(leftRatio) {
+                localStorage.setItem('splitterPosition', leftRatio.toString());
+            }
+
+            // Check if mouse is near splitter (with margin)
+            function isNearSplitter(clientX) {
+                const splitterRect = splitter.getBoundingClientRect();
+                return clientX >= splitterRect.left - GRAB_MARGIN &&
+                       clientX <= splitterRect.right + GRAB_MARGIN;
+            }
+
+            // Initialize with saved position
+            loadPosition();
+
+            // Start dragging on splitter or near it
+            document.addEventListener('mousedown', function(e) {
+                if (isNearSplitter(e.clientX)) {
+                    isResizing = true;
+                    splitter.classList.add('dragging');
+                    document.body.style.cursor = 'col-resize';
+                    document.body.style.userSelect = 'none';
+                    e.preventDefault();
+                }
+            });
+
+            // Update cursor when hovering near splitter
+            document.addEventListener('mousemove', function(e) {
+                if (isResizing) {
+                    const containerRect = container.getBoundingClientRect();
+                    const leftWidth = e.clientX - containerRect.left;
+                    const totalWidth = containerRect.width;
+
+                    // Min/max constraints (20% - 80%)
+                    const minWidth = totalWidth * 0.2;
+                    const maxWidth = totalWidth * 0.8;
+
+                    if (leftWidth >= minWidth && leftWidth <= maxWidth) {
+                        const leftFlex = leftWidth / totalWidth;
+                        const rightFlex = (totalWidth - leftWidth - 5) / totalWidth; // 5px for splitter
+
+                        leftPanel.style.flex = `${leftFlex} 0 0`;
+                        rightPanel.style.flex = `${rightFlex} 0 0`;
+                    }
+                } else if (isNearSplitter(e.clientX)) {
+                    document.body.style.cursor = 'col-resize';
+                } else {
+                    document.body.style.cursor = '';
+                }
+            });
+
+            document.addEventListener('mouseup', function() {
+                if (isResizing) {
+                    isResizing = false;
+                    splitter.classList.remove('dragging');
+                    document.body.style.cursor = '';
+                    document.body.style.userSelect = '';
+
+                    // Save position
+                    const containerRect = container.getBoundingClientRect();
+                    const leftRect = leftPanel.getBoundingClientRect();
+                    const leftRatio = leftRect.width / containerRect.width;
+                    savePosition(leftRatio);
+                }
+            });
+        })();
+    </script>
+</body>
+</html>

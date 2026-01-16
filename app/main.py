@@ -1,13 +1,19 @@
 """Main Flask application for DLNA Radio Streamer."""
 
 import logging
-import sys
+import re
 import socket
-from flask import Flask, request, jsonify
+import sys
+from urllib.parse import urlparse
+
+import requests
+from flask import Flask, jsonify, render_template, request
+
 from app.config import Config
+from app.device_manager import DeviceManager
+from app.discovery import SSDPDiscovery
 from app.dlna_client import DLNAClient
-from app.streamer import AudioStreamer
-from typing import Optional
+from app.streamer import AudioStreamer, PassthroughStreamer
 
 # Configure logging
 logging.basicConfig(
@@ -33,10 +39,34 @@ werkzeug_logger.addFilter(HealthCheckFilter())
 # Initialize Flask app
 app = Flask(__name__)
 
+# JSON error handlers
+@app.errorhandler(404)
+def not_found(error):
+    """Return JSON for 404 errors instead of HTML."""
+    return jsonify({
+        'message': 'The requested endpoint does not exist'
+    }), 404
+
+@app.errorhandler(405)
+def method_not_allowed(error):
+    """Return JSON for 405 errors instead of HTML."""
+    return jsonify({
+        'message': 'The method is not allowed for the requested endpoint'
+    }), 405
+
+@app.errorhandler(500)
+def internal_error(error):
+    """Return JSON for 500 errors instead of HTML."""
+    return jsonify({
+        'error': 'Internal Server Error',
+        'message': 'An unexpected error occurred'
+    }), 500
+
 # Global state
-config: Optional[Config] = None
-streamer: Optional[AudioStreamer] = None
-dlna_client: Optional[DLNAClient] = None
+config: Config | None = None
+streamer: AudioStreamer | PassthroughStreamer | None = None
+dlna_client: DLNAClient | None = None
+device_manager: DeviceManager | None = None
 
 
 def get_local_ip() -> str:
@@ -51,19 +81,210 @@ def get_local_ip() -> str:
         return "127.0.0.1"
 
 
+def validate_ip_address(ip: str) -> bool:
+    """
+    Validate IP address format - only digits and dots.
+
+    Args:
+        ip: IP address string to validate
+
+    Returns:
+        True if valid IPv4 format, False otherwise
+    """
+    # Strict regex: only digits and dots, 4 octets
+    ip_pattern = re.compile(r'^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$')
+    if not ip_pattern.match(ip):
+        return False
+
+    # Additional check: each octet must be 0-255
+    try:
+        octets = ip.split('.')
+        for octet in octets:
+            if int(octet) > 255:
+                return False
+        return True
+    except ValueError:
+        return False
+
+
+def validate_boolean_string(value: str) -> bool:
+    """
+    Validate that string is exactly 'true' or 'false'.
+
+    Args:
+        value: String to validate
+
+    Returns:
+        True if exactly 'true' or 'false', False otherwise
+    """
+    return value in ('true', 'false')
+
+
+def validate_stream_url(url: str) -> bool:
+    """
+    Validate stream URL - must be valid http or https URL.
+    Blocks SSRF attempts to localhost, private IPs, and cloud metadata.
+
+    Args:
+        url: URL string to validate
+
+    Returns:
+        True if valid http/https URL, False otherwise
+    """
+    try:
+        parsed = urlparse(url)
+        # Must have scheme and netloc (domain)
+        if not parsed.scheme or not parsed.netloc:
+            return False
+        # Only allow http and https schemes (no file://, ftp://, etc.)
+        if parsed.scheme not in ('http', 'https'):
+            return False
+
+        # Extract hostname (remove port if present)
+        hostname = parsed.hostname
+        if not hostname:
+            return False
+
+        # Block localhost and loopback addresses (SSRF protection)
+        blocked_hosts = {
+            'localhost',
+            '127.0.0.1',
+            '0.0.0.0',
+            '::1',  # IPv6 loopback
+            '0:0:0:0:0:0:0:1',  # IPv6 loopback expanded
+        }
+        if hostname.lower() in blocked_hosts:
+            return False
+
+        # Block cloud metadata endpoints (AWS, Azure, GCP)
+        if hostname.startswith('169.254.'):  # AWS metadata
+            return False
+        if hostname.startswith('fd00:'):  # IPv6 private
+            return False
+
+        # Block private IP ranges (optional - can be relaxed for local streams)
+        # For now, we allow private IPs since users may stream from local servers
+        # Uncomment to block:
+        # if hostname.startswith('10.'):
+        #     return False
+        # if hostname.startswith('172.') and 16 <= int(hostname.split('.')[1]) <= 31:
+        #     return False
+        # if hostname.startswith('192.168.'):
+        #     return False
+
+        return True
+    except Exception:
+        return False
+
+
+def _create_dlna_client_from_device(device_info: dict) -> DLNAClient:
+    """Create a DLNAClient instance from device info."""
+    return DLNAClient(
+        device_host=device_info.get('ip', ''),
+        device_port=device_info.get('port', 8080),
+        protocol='http',  # TODO: detect from control_url if needed
+        control_url=device_info.get('control_url'),
+        connection_manager_url=device_info.get('connection_manager_url')
+    )
+
+
+def _detect_stream_format(stream_url: str) -> str | None:
+    """
+    Detect stream content type by making a HEAD request.
+
+    Returns:
+        MIME type string or None
+    """
+    try:
+        response = requests.head(stream_url, timeout=5, allow_redirects=True)
+        content_type = response.headers.get('Content-Type', '')
+        if content_type:
+            # Extract just the MIME type (before any semicolon)
+            mime_type = content_type.split(';')[0].strip()
+            logger.info(f"Detected stream format: {mime_type}")
+            return mime_type
+    except Exception as e:
+        logger.warning(f"Could not detect stream format: {e}")
+
+    return None
+
+
+def _background_device_scan():
+    """Background thread to scan for devices on startup."""
+    global device_manager
+
+    devices_found_via_callback = []
+
+    def on_device_found(device_info):
+        """Callback to add device to cache immediately when found."""
+        try:
+            logger.info(f"Background scan found device: {device_info.get('friendly_name', 'Unknown')} at {device_info.get('ip')}")
+
+            # Get current cache
+            cached = device_manager.get_cached_devices()
+
+            # Add new device if not already in cache
+            device_exists = any(d.get('id') == device_info.get('id') for d in cached)
+            if not device_exists:
+                cached.append(device_info)
+                device_manager.update_device_cache(cached)
+                devices_found_via_callback.append(device_info)
+                logger.info(f"Added device to cache via callback: {device_info.get('friendly_name', 'Unknown')}")
+            else:
+                logger.debug(f"Device {device_info.get('friendly_name', 'Unknown')} already in cache")
+        except Exception as e:
+            logger.error(f"Failed to add device to cache in callback: {e}", exc_info=True)
+
+    try:
+        logger.info("Starting background device scan (10s timeout)")
+        devices = SSDPDiscovery.discover(timeout=10, device_callback=on_device_found)
+
+        logger.info(f"Background scan discovery returned {len(devices)} devices")
+        logger.info(f"Callback was invoked for {len(devices_found_via_callback)} devices")
+
+        # Final update with all devices (in case callback failed for some)
+        if devices:
+            device_manager.update_device_cache(devices)
+            logger.info(f"Background scan complete. Final cache update with {len(devices)} devices")
+
+            # Log device names for debugging
+            for dev in devices:
+                logger.info(f"  - {dev.get('friendly_name', 'Unknown')} ({dev.get('ip')})")
+        else:
+            logger.warning("Background scan complete. No devices found - this may indicate network issues")
+
+    except Exception as e:
+        logger.error(f"Background device scan failed: {e}", exc_info=True)
+
+
 def initialize():
     """Initialize application components."""
-    global config, dlna_client
+    global config, dlna_client, device_manager
 
     config = Config()
     logger.info("Configuration loaded")
 
-    dlna_client = DLNAClient(
-        device_host=config.dlna_host,
-        device_port=config.dlna_port,
-        protocol=config.dlna_protocol
-    )
-    logger.info(f"DLNA client initialized for device at {config.dlna_protocol}://{config.dlna_host}:{config.dlna_port}")
+    # Initialize device manager
+    device_manager = DeviceManager()
+
+    # Restore previously selected device if exists
+    saved_device = device_manager.get_current_device()
+    if saved_device:
+        logger.info(f"Restoring previously selected device: {saved_device.get('friendly_name', 'Unknown')}")
+        dlna_client = _create_dlna_client_from_device(saved_device)
+    else:
+        logger.info("No device selected. Use /devices/select to choose a device.")
+
+    # Start background device scan
+    import threading
+    scan_thread = threading.Thread(target=_background_device_scan, daemon=True)
+    scan_thread.start()
+
+
+@app.route('/', methods=['GET'])
+def index():
+    """Development console UI."""
+    return render_template('dev.html', default_stream_url=config.default_stream_url)
 
 
 @app.route('/health', methods=['GET'])
@@ -75,10 +296,171 @@ def health():
     }), 200
 
 
+@app.route('/devices', methods=['GET'])
+def devices():
+    """
+    Get list of discovered DLNA devices.
+    Returns cached results by default, or performs new scan with force_scan=true.
+
+    Query parameters:
+    - force_scan: Force new scan (default: false)
+    - timeout: Scan timeout in seconds when force_scan=true (default: 5, max: 15)
+    """
+    try:
+        force_scan_param = request.args.get('force_scan', default='false', type=str)
+
+        # Strict validation: only 'true' or 'false' allowed (case-sensitive)
+        if not validate_boolean_string(force_scan_param):
+            return jsonify({
+                'message': f'force_scan must be "true" or "false", got: {force_scan_param}'
+            }), 400
+
+        force_scan = force_scan_param == 'true'
+
+        if force_scan:
+            timeout = request.args.get('timeout', default=5, type=int)
+            timeout = min(timeout, 15)
+            logger.info(f"Force scan requested (timeout: {timeout}s)")
+            devices_list = SSDPDiscovery.discover(timeout=timeout)
+            device_manager.update_device_cache(devices_list)
+            cache_age = 0
+        else:
+            cache_age = device_manager.get_cache_age()
+            devices_list = device_manager.get_cached_devices()
+
+        return jsonify({
+            'devices': devices_list,
+            'count': len(devices_list),
+            'cache_age_seconds': cache_age
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error getting devices: {e}", exc_info=True)
+        return jsonify({
+            'error': str(e)
+        }), 500
+
+
+@app.route('/devices/select', methods=['POST'])
+def device_select():
+    """Select a DLNA device by IP address and detect its capabilities."""
+    global dlna_client
+
+    try:
+        # Get IP from query parameter only
+        ip = request.args.get('ip')
+
+        if not ip:
+            return jsonify({
+                'message': 'ip parameter is required'
+            }), 400
+
+        # Strict IP validation: only digits and dots
+        if not validate_ip_address(ip):
+            return jsonify({
+                'message': f'Invalid IP address format: {ip}'
+            }), 400
+
+        device_info = None
+
+        # Try to get from current device if IP matches (edge case)
+        current = device_manager.get_current_device()
+        if current and current.get('ip') == ip:
+            device_info = current
+
+        # Try device cache first (fast)
+        if not device_info:
+            device_info = device_manager.find_device_in_cache(ip=ip)
+            if device_info:
+                logger.info(f"Found device in cache: {device_info.get('friendly_name', 'Unknown')}")
+
+        if not device_info:
+            # Scan for device
+            logger.info(f"Scanning for device: {ip}")
+            devices = SSDPDiscovery.discover(timeout=5)
+            device_manager.update_device_cache(devices)
+            for device in devices:
+                if device.get('ip') == ip:
+                    device_info = device
+                    break
+
+            # If still not found, try direct connection
+            if not device_info:
+                logger.info(f"Device not found in scan, trying direct connection to {ip}")
+                device_info = SSDPDiscovery.try_direct_connection(ip)
+
+        if not device_info:
+            return jsonify({
+                'message': f'Device {ip} not found'
+            }), 404
+
+        # Create DLNA client for this device
+        client = _create_dlna_client_from_device(device_info)
+
+        # Detect capabilities
+        logger.info(f"Detecting capabilities for {device_info.get('friendly_name', 'Unknown')}")
+        capabilities = client.detect_capabilities()
+
+        # Save device info with capabilities
+        device_info['capabilities'] = capabilities
+        device_manager.select_device(device_info)
+
+        # Update global DLNA client
+        dlna_client = client
+
+        return jsonify({
+            'status': 'selected',
+            'device': {
+                'id': device_info.get('id'),
+                'friendly_name': device_info.get('friendly_name'),
+                'manufacturer': device_info.get('manufacturer'),
+                'model_name': device_info.get('model_name'),
+                'ip': device_info.get('ip'),
+                'capabilities': capabilities
+            }
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error selecting device: {e}", exc_info=True)
+        return jsonify({
+            'error': str(e)
+        }), 500
+
+
+@app.route('/devices/current', methods=['GET'])
+def device_current():
+    """Get currently selected device."""
+    try:
+        device = device_manager.get_current_device()
+
+        if not device:
+            return jsonify({
+                'device': None,
+                'message': 'No device selected'
+            }), 200
+
+        return jsonify({
+            'device': {
+                'id': device.get('id'),
+                'friendly_name': device.get('friendly_name'),
+                'manufacturer': device.get('manufacturer'),
+                'model_name': device.get('model_name'),
+                'ip': device.get('ip'),
+                'capabilities': device.get('capabilities', {})
+            }
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error getting current device: {e}", exc_info=True)
+        return jsonify({
+            'error': str(e)
+        }), 500
+
+
 @app.route('/play', methods=['POST'])
 def play():
-    """Start streaming radio to DLNA device."""
-    global streamer
+    """Start streaming radio to DLNA device with smart transcoding."""
+    global streamer, dlna_client
 
     try:
         # Get stream URL from query parameter or use default
@@ -86,8 +468,28 @@ def play():
 
         if not stream_url:
             return jsonify({
-                'error': 'No stream URL provided and no default configured'
+                'message': 'No stream URL provided and no default configured'
             }), 400
+
+        # Validate stream URL
+        if not validate_stream_url(stream_url):
+            return jsonify({
+                'message': f'Invalid stream URL format: {stream_url}'
+            }), 400
+
+        # Use current device from device_manager
+        device_info = device_manager.get_current_device()
+
+        if not device_info:
+            return jsonify({
+                'message': 'No device selected. Please use /devices/select first.'
+            }), 400
+
+        # Create client from current device (with capabilities loaded from state)
+        active_client = _create_dlna_client_from_device(device_info)
+        # Load capabilities from saved device info
+        if device_info.get('capabilities'):
+            active_client.capabilities = device_info.get('capabilities')
 
         # Stop existing stream if running
         if streamer and streamer.is_running():
@@ -95,35 +497,65 @@ def play():
             streamer.stop()
 
         # Stop DLNA device to ensure clean state (only if playing)
-        dlna_client.stop_if_playing()
+        active_client.stop_if_playing()
 
-        # Create new streamer
-        streamer = AudioStreamer(
-            stream_url=stream_url,
-            port=config.stream_port,
-            bitrate=config.mp3_bitrate
-        )
+        # Detect stream format
+        stream_format = _detect_stream_format(stream_url)
+        needs_transcoding = True
+        playback_url = stream_url
 
-        # Start streaming
-        streamer.start()
-
-        # Get stream URL - use configured public URL or auto-detect local IP
-        if config.stream_public_url:
-            transcoded_url = f"{config.stream_public_url}/stream.mp3"
-            logger.info(f"Using configured public URL: {transcoded_url}")
+        # Check if device can play the format natively
+        if stream_format and active_client.capabilities:
+            can_play_native = active_client.can_play_format(stream_format)
+            if can_play_native:
+                logger.info(f"Device supports {stream_format} natively - using passthrough mode")
+                needs_transcoding = False
+            else:
+                logger.info(f"Device does not support {stream_format} - transcoding required")
         else:
-            local_ip = get_local_ip()
-            transcoded_url = streamer.get_stream_url(local_ip)
-            logger.info(f"Auto-detected stream URL: {transcoded_url}")
+            logger.info("Could not detect format or capabilities - defaulting to transcoding")
+
+        # Create appropriate streamer
+        if needs_transcoding:
+            # Use FFmpeg transcoding
+            streamer = AudioStreamer(
+                stream_url=stream_url,
+                port=config.stream_port,
+                bitrate=config.mp3_bitrate
+            )
+            streamer.start()
+
+            # Wait for HTTP server to be ready before sending to DLNA device
+            if not streamer.wait_until_ready(timeout=10):
+                streamer.stop()
+                return jsonify({
+                    'error': 'Streaming server failed to start'
+                }), 500
+
+            # Get transcoded stream URL
+            if config.stream_public_url:
+                playback_url = f"{config.stream_public_url}/stream.mp3"
+                logger.info(f"Using configured public URL: {playback_url}")
+            else:
+                local_ip = get_local_ip()
+                playback_url = streamer.get_stream_url(local_ip)
+                logger.info(f"Auto-detected stream URL: {playback_url}")
+        else:
+            # Use passthrough - send original URL directly
+            streamer = PassthroughStreamer(stream_url)
+            streamer.start()
+            playback_url = stream_url
 
         # Send to DLNA device
-        success = dlna_client.play_url(transcoded_url)
+        success = active_client.play_url(playback_url)
 
         if success:
             return jsonify({
                 'status': 'playing',
                 'stream_url': stream_url,
-                'transcoded_url': transcoded_url
+                'playback_url': playback_url,
+                'transcoding': needs_transcoding,
+                'format': stream_format
             }), 200
         else:
             streamer.stop()
@@ -177,11 +609,29 @@ def status():
 
         dlna_info = None
         if dlna_client:
-            dlna_info = dlna_client.get_transport_info()
+            dlna_info = dlna_client.get_transport_info(retries=2)
+
+            # If DLNA query failed but streamer is running, provide fallback info
+            if dlna_info is None and is_streaming:
+                logger.debug("DLNA query failed but streamer is running - using fallback status")
+                dlna_info = {
+                    'state': 'PLAYING',
+                    'status': 'UNKNOWN'
+                }
+
+        # Get current device info
+        current_device = device_manager.get_current_device()
+        device_info = None
+        if current_device:
+            device_info = {
+                'friendly_name': current_device.get('friendly_name'),
+                'ip': current_device.get('ip')
+            }
 
         return jsonify({
             'streaming': is_streaming,
-            'dlna': dlna_info
+            'dlna': dlna_info,
+            'current_device': device_info
         }), 200
 
     except Exception as e:

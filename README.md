@@ -1,188 +1,189 @@
 # DLNA Radio Streamer
 
-Stream internet radio to DLNA-enabled devices with automatic AAC to MP3 transcoding.
+[![Tests](https://github.com/rafalkalinski/stream-to-dlna/actions/workflows/tests.yml/badge.svg)](https://github.com/rafalkalinski/stream-to-dlna/actions/workflows/tests.yml)
+[![codecov](https://codecov.io/gh/rafalkalinski/stream-to-dlna/branch/main/graph/badge.svg)](https://codecov.io/gh/rafalkalinski/stream-to-dlna)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Docker](https://img.shields.io/docker/pulls/erkalina/stream-to-dlna.svg)](https://hub.docker.com/r/erkalina/stream-to-dlna)
+
+Stream internet radio to DLNA devices with automatic format detection and smart transcoding.
 
 ## Features
 
-- REST API for controlling DLNA devices
-- Automatic audio transcoding (AAC/HLS to MP3)
+- Network discovery with SSDP/UPnP
+- Smart transcoding: passthrough when device supports native format, FFmpeg when transcoding needed
+- Multi-device support with persistent device selection
+- Device cache with configurable TTL (default 2 hours)
+- Background device scan on startup
+- Direct device connection fallback when SSDP fails
+- MediaRenderer filtering (excludes MediaServers like NAS devices)
+- REST API for full control
 - Docker-based deployment
-- Home Assistant integration ready
-- YAML configuration
-- Support for custom stream URLs
 
-## Architecture
+## Quick Start
 
-The application works as follows:
+### Production (Docker)
 
-1. Receives HTTP request to start streaming
-2. Uses FFmpeg to fetch and transcode the radio stream to MP3
-3. Serves the transcoded stream via HTTP
-4. Instructs the DLNA device to play the stream using UPnP/AVTransport protocol
-
-## Requirements
-
-- Docker and Docker Compose
-- DLNA-compatible device on the same network
-- Network connectivity between the Docker host and DLNA device
-
-## Installation
-
-1. Clone the repository:
 ```bash
 git clone https://github.com/rafalkalinski/stream-to-dlna.git
 cd stream-to-dlna
-```
 
-2. Edit `config.yaml` with your settings:
-```yaml
-dlna:
-  host: "192.168.1.100"  # Your DLNA device address
-
-radio:
-  default_url: "https://stream.radio357.pl"
-```
-
-3. Start the service:
-```bash
+# Create your config from example
+cp config.example.yaml config.yaml
+# Edit config.yaml with your settings
 docker-compose up -d
+```
+
+### Development (Local)
+
+```bash
+git clone https://github.com/rafalkalinski/stream-to-dlna.git
+cd stream-to-dlna
+
+# Automated setup
+./dev-setup.sh
+
+# Or manual setup
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+
+# Run tests
+pytest
+
+# Open dev console in browser
+open http://localhost:5000
+
+# Or use CLI:
+# Get devices
+curl http://localhost:5000/devices?force_scan=true
+
+# Select device
+curl -X POST "http://localhost:5000/devices/select?ip=192.168.1.100"
+
+# Play radio
+curl -X POST http://localhost:5000/play
 ```
 
 ## Configuration
 
+Create `config.yaml` from the example template:
+
+```bash
+cp config.example.yaml config.yaml
+```
+
 Edit `config.yaml`:
 
 ```yaml
-# DLNA device settings
-dlna:
-  host: "192.168.1.100"   # Your DLNA device address (IP, hostname, or domain)
-
-# Radio streaming settings
 radio:
   default_url: "https://stream.radio357.pl"
 
-# API server settings
 server:
-  host: "0.0.0.0"         # Bind to all interfaces
-  port: 5000              # REST API port
+  host: "0.0.0.0"
+  port: 5000
 
-# Streaming settings
 streaming:
-  port: 8080              # Port for transcoded MP3 stream
-  mp3_bitrate: "128k"     # MP3 encoding bitrate
-
-  # Optional: Public URL for reverse proxy (e.g., Nginx Proxy Manager)
+  port: 8080
+  mp3_bitrate: "128k"
   # public_url: "http://radio.yourdomain.local"
-
-# Optional: Advanced DLNA settings (uncomment if needed)
-# dlna_advanced:
-#   port: 8080         # DLNA control port (default: 8080)
-#   protocol: "http"   # Protocol: http or https (default: http)
 ```
 
-## API Endpoints
+Note: Device configuration is done via API (no manual IP configuration needed).
 
-### Start Playback
+## API Reference
 
-Start streaming to the DLNA device:
+### Development Console
 
+Open `http://localhost:5000` in browser for interactive API testing UI.
+
+### Device Discovery
+
+**Get devices**
 ```bash
-# Use default stream URL from config.yaml
-POST /play
+GET /devices?force_scan=false
+```
+Returns cached devices by default. Use `force_scan=true` to perform new network scan.
 
-# Or provide a custom stream URL
+**Select device**
+```bash
+POST /devices/select?ip=192.168.1.100
+```
+Selects device by IP. Uses cache first, falls back to scan, then attempts direct connection.
+
+**Get current device**
+```bash
+GET /devices/current
+```
+
+### Playback Control
+
+**Start playback**
+```bash
 POST /play?streamUrl=https://stream.radio357.pl
 ```
+Parameters:
+- `streamUrl`: Stream URL (optional, uses default from config)
 
-Response:
-```json
-{
-  "status": "playing",
-  "stream_url": "https://stream.radio357.pl",
-  "transcoded_url": "http://192.168.1.50:8080/stream.mp3"
-}
-```
+Response indicates whether passthrough or transcoding is used. Uses currently selected device from `/devices/select`.
 
-### Stop Playback
-
-Stop streaming:
-
+**Stop playback**
 ```bash
 POST /stop
 ```
 
-Response:
-```json
-{
-  "status": "stopped"
-}
-```
+### Status
 
-### Check Status
-
-Get current playback status:
-
+**Get status**
 ```bash
 GET /status
 ```
+Returns streaming status, DLNA device state, and current device info.
 
-Response:
-```json
-{
-  "streaming": true,
-  "dlna": {
-    "state": "PLAYING",
-    "status": "OK"
-  }
-}
-```
-
-### Health Check
-
-Check if the service is running:
-
+**Health check**
 ```bash
 GET /health
 ```
 
-Response:
-```json
-{
-  "status": "ok",
-  "streaming": false
-}
-```
+## Architecture
+
+### Streaming Modes
+
+**Passthrough Mode** (when device supports native format):
+- Detects stream format via HTTP headers
+- Checks device capabilities using UPnP GetProtocolInfo
+- Sends stream URL directly to device
+
+**Transcoding Mode** (when transcoding needed):
+- FFmpeg transcodes stream to MP3
+- Serves transcoded stream via HTTP
+- Device plays from local server
+
+Mode is automatically selected based on format detection and device capabilities.
+
+### Device Discovery
+
+1. Background scan on startup (10s timeout)
+2. Results cached with 2-hour TTL
+3. Manual refresh via `/scan?force=true`
+4. Direct connection fallback when SSDP fails
+
+Only MediaRenderer devices (with AVTransport service) are discovered. MediaServer devices like NAS are filtered out.
 
 ## Troubleshooting
 
-### DLNA device not responding
+**Device not found in scan:**
+- Try longer timeout: `/devices?force_scan=true&timeout=10`
+- Use direct connection: `POST /devices/select?ip=192.168.1.100`
 
-1. Verify the device host address in `config.yaml`
-2. Check network connectivity:
-```bash
-docker exec dlna-radio-streamer ping 192.168.1.100
-# or for hostnames
-docker exec dlna-radio-streamer ping panasonic.local
-```
+**Playback fails:**
+- Check logs: `docker logs stream-to-dlna`
+- Verify device is accessible from container
+- Check firewall rules
 
-3. Some devices use different control URLs. Check device documentation or use a UPnP discovery tool.
-
-### FFmpeg transcoding issues
-
-View FFmpeg logs:
-```bash
-docker logs dlna-radio-streamer
-```
-
-Common issues:
-- Invalid stream URL
-- Network connectivity problems
-- Unsupported audio codec (though AAC should work)
-
-### Stream not playing on device
-
-1. Verify DLNA device can reach the Docker host
-2. Check firewall rules on the Docker host
+**Cache not updating:**
+- Force refresh: `/scan?force=true`
+- Adjust TTL: `/scan?max_cache_age=3600`
 
 ## Development
 
@@ -191,31 +192,22 @@ Common issues:
 ```
 stream-to-dlna/
 ├── app/
-│   ├── __init__.py
-│   ├── main.py          # Flask API application
-│   ├── config.py        # Configuration management
-│   ├── dlna_client.py   # DLNA/UPnP client
-│   └── streamer.py      # FFmpeg streaming
-├── config.yaml          # Configuration file
-├── requirements.txt     # Python dependencies
+│   ├── main.py           # Flask API
+│   ├── config.py         # Configuration
+│   ├── dlna_client.py    # DLNA/UPnP client
+│   ├── streamer.py       # FFmpeg transcoding
+│   ├── discovery.py      # SSDP discovery
+│   └── device_manager.py # Device state management
+├── config.yaml
 ├── Dockerfile
-├── docker-compose.yaml
-├── LICENSE
-└── README.md
+└── docker-compose.yaml
 ```
+
+### Tested Devices
+
+- Panasonic SC-PMX9
+- Samsung HW-Q90R
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Tested Devices
-
-- Panasonic SC-PMX9
-
-If you test this with other devices, please open an issue to let us know.
-
-## Acknowledgments
-
-- FFmpeg for audio transcoding
-- Flask for the REST API framework
-- UPnP/DLNA protocol specifications
+MIT License - see LICENSE file for details.
