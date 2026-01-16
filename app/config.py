@@ -1,8 +1,9 @@
 """Configuration management."""
 
-import yaml
 import os
-from typing import Dict, Any
+from typing import Any
+
+import yaml
 
 
 class Config:
@@ -10,13 +11,13 @@ class Config:
 
     def __init__(self, config_path: str = "config.yaml"):
         self.config_path = config_path
-        self.data: Dict[str, Any] = {}
+        self.data: dict[str, Any] = {}
         self.load()
 
     def load(self):
         """Load configuration from YAML file."""
         if os.path.exists(self.config_path):
-            with open(self.config_path, 'r') as f:
+            with open(self.config_path) as f:
                 self.data = yaml.safe_load(f) or {}
         else:
             self.data = {}

@@ -1,8 +1,6 @@
 """Integration tests for API endpoints."""
 
-import pytest
 import json
-from unittest.mock import patch, Mock
 
 
 class TestHealthEndpoint:

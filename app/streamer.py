@@ -1,13 +1,10 @@
 """Audio streaming with optional FFmpeg transcoding or passthrough."""
 
+import logging
 import subprocess
 import threading
-import logging
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from socketserver import ThreadingMixIn
-from typing import Optional
-import time
-import socket
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +47,7 @@ class ReuseAddrHTTPServer(ThreadingMixIn, HTTPServer):
 class StreamHandler(BaseHTTPRequestHandler):
     """HTTP handler for serving transcoded audio stream."""
 
-    ffmpeg_process: Optional[subprocess.Popen] = None
+    ffmpeg_process: subprocess.Popen | None = None
 
     def do_GET(self):
         """Handle GET request for audio stream."""
@@ -87,9 +84,9 @@ class AudioStreamer:
         self.stream_url = stream_url
         self.port = port
         self.bitrate = bitrate
-        self.ffmpeg_process: Optional[subprocess.Popen] = None
-        self.http_server: Optional[HTTPServer] = None
-        self.server_thread: Optional[threading.Thread] = None
+        self.ffmpeg_process: subprocess.Popen | None = None
+        self.http_server: HTTPServer | None = None
+        self.server_thread: threading.Thread | None = None
         self.running = False
 
     def start(self):
@@ -231,7 +228,7 @@ class AudioStreamer:
                 sock.close()
                 logger.info("Streaming server is ready")
                 return True
-            except (socket.error, ConnectionRefusedError):
+            except (OSError, ConnectionRefusedError):
                 time.sleep(0.2)
 
         logger.warning(f"Streaming server not ready after {timeout}s")

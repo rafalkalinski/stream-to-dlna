@@ -1,11 +1,11 @@
 """SSDP/UPnP device discovery for finding DLNA devices on the network."""
 
-import socket
 import logging
-import requests
-from typing import List, Dict, Optional
-from xml.etree import ElementTree as ET
+import socket
 from urllib.parse import urlparse
+from xml.etree import ElementTree as ET
+
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ class SSDPDiscovery:
     SSDP_ST = "urn:schemas-upnp-org:device:MediaRenderer:1"
 
     @staticmethod
-    def discover(timeout: int = 5, device_callback=None) -> List[Dict[str, str]]:
+    def discover(timeout: int = 5, device_callback=None) -> list[dict[str, str]]:
         """
         Discover DLNA MediaRenderer devices on the local network.
 
@@ -112,7 +112,7 @@ class SSDPDiscovery:
 
             # Fetch device descriptions in parallel
             if locations:
-                from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError
+                from concurrent.futures import ThreadPoolExecutor, TimeoutError, as_completed
                 logger.debug(f"Fetching device info for {len(locations)} locations in parallel")
 
                 with ThreadPoolExecutor(max_workers=min(10, len(locations))) as executor:
@@ -149,7 +149,7 @@ class SSDPDiscovery:
         return devices
 
     @staticmethod
-    def try_direct_connection(host: str, timeout: int = 3) -> Optional[Dict[str, str]]:
+    def try_direct_connection(host: str, timeout: int = 3) -> dict[str, str] | None:
         """
         Try to connect directly to a device by IP/hostname.
         Attempts common device description XML paths.
@@ -185,14 +185,14 @@ class SSDPDiscovery:
                         device_info = SSDPDiscovery._fetch_device_info(location)
                         if device_info:
                             return device_info
-                except:
+                except Exception:
                     continue
 
         logger.warning(f"Could not connect to device at {host}")
         return None
 
     @staticmethod
-    def _parse_ssdp_response(response: str) -> Dict[str, str]:
+    def _parse_ssdp_response(response: str) -> dict[str, str]:
         """Parse SSDP response headers."""
         headers = {}
         lines = response.split('\r\n')
@@ -205,7 +205,7 @@ class SSDPDiscovery:
         return headers
 
     @staticmethod
-    def _fetch_device_info(location: str) -> Optional[Dict[str, str]]:
+    def _fetch_device_info(location: str) -> dict[str, str] | None:
         """
         Fetch device description XML and extract relevant information.
 
@@ -300,7 +300,7 @@ class SSDPDiscovery:
             return None
 
     @staticmethod
-    def _find_av_transport_control_url(device, ns, scheme, host, port) -> Optional[str]:
+    def _find_av_transport_control_url(device, ns, scheme, host, port) -> str | None:
         """Find AVTransport service control URL."""
         try:
             # Look for AVTransport service
@@ -337,7 +337,7 @@ class SSDPDiscovery:
             return f"{scheme}://{host}:{port}/AVTransport/ctrl"
 
     @staticmethod
-    def _find_connection_manager_control_url(device, ns, scheme, host, port) -> Optional[str]:
+    def _find_connection_manager_control_url(device, ns, scheme, host, port) -> str | None:
         """Find ConnectionManager service control URL."""
         try:
             # Look for ConnectionManager service
