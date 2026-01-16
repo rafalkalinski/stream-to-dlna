@@ -3,14 +3,16 @@
 [![Tests](https://github.com/rafalkalinski/stream-to-dlna/actions/workflows/tests.yml/badge.svg)](https://github.com/rafalkalinski/stream-to-dlna/actions/workflows/tests.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Docker](https://img.shields.io/docker/pulls/erkalina/stream-to-dlna.svg)](https://hub.docker.com/r/erkalina/stream-to-dlna)
-[![Version](https://img.shields.io/badge/version-v0.2-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-v0.3-blue.svg)](CHANGELOG.md)
+[![Security](https://img.shields.io/badge/security-reviewed-green.svg)](SECURITY.md)
 
 Stream internet radio to DLNA devices with automatic format detection and smart transcoding.
 
-**Latest:** v0.2 adds development console, comprehensive testing, and improved reliability. See [CHANGELOG](CHANGELOG.md) for details.
+**Latest:** v0.3 adds major security, performance, and reliability improvements. See [CHANGELOG](CHANGELOG.md) for details.
 
 ## Features
 
+### Core Functionality
 - **Interactive Web Console** at `http://localhost:5000` - GUI for device management and API testing
 - Network discovery with SSDP/UPnP
 - Smart transcoding: passthrough when device supports native format, FFmpeg when transcoding needed
@@ -21,6 +23,22 @@ Stream internet radio to DLNA devices with automatic format detection and smart 
 - MediaRenderer filtering (excludes MediaServers like NAS devices)
 - REST API for full control
 - Docker-based deployment
+
+### Performance & Reliability
+- HTTP connection pooling for improved performance
+- Process-level file locking (fcntl) for multi-worker safety
+- FFmpeg process tracking and orphan cleanup
+- Configurable timeouts for all network operations
+- Stderr buffer limiting to prevent memory leaks
+- Single-worker architecture for consistent state management
+
+### Security
+- Comprehensive input validation (IP, URL, boolean)
+- SSRF protection (blocks localhost, AWS metadata, IPv6 loopback)
+- FFmpeg protocol whitelist (http,https,tcp,tls)
+- Optional API key authentication
+- Optional rate limiting (Flask-Limiter)
+- See [SECURITY.md](SECURITY.md) for full security documentation
 
 ## Quick Start
 
@@ -90,9 +108,115 @@ streaming:
   port: 8080
   mp3_bitrate: "128k"
   # public_url: "http://radio.yourdomain.local"
+
+# Network timeouts (optional, defaults shown)
+timeouts:
+  http_request: 10
+  stream_detection: 5
+  device_discovery: 10
+  ffmpeg_startup: 10
+
+# Security settings (optional)
+security:
+  rate_limit_enabled: false
+  # rate_limit_default: "100 per hour"
+  api_auth_enabled: false
+  # api_key: "your-secret-api-key-here"
+
+# Performance settings (optional, defaults shown)
+performance:
+  gunicorn_workers: 1    # Recommended: 1 for consistent state
+  gunicorn_threads: 4
+  connection_pool_size: 10
+  connection_pool_maxsize: 20
+
+# FFmpeg settings (optional, defaults shown)
+ffmpeg:
+  chunk_size: 8192
+  max_stderr_lines: 1000
+  protocol_whitelist: "http,https,tcp,tls"
 ```
 
 Note: Device configuration is done via API (no manual IP configuration needed).
+
+### Security Configuration
+
+**By default, the API is OPEN without authentication.** This is suitable for trusted local networks only.
+
+For production deployments, **you MUST enable security features:**
+
+#### 1. API Key Authentication (Strongly Recommended)
+
+**Default state:** `api_auth_enabled: false` - **all endpoints are accessible without authentication**
+
+**To enable authentication:**
+
+```yaml
+# config.yaml
+security:
+  api_auth_enabled: true
+  api_key: "your-32-character-random-key-here"  # Generate with: openssl rand -hex 32
+```
+
+**Protected endpoints** (require `X-API-Key` header when auth is enabled):
+- `POST /devices/select` - Device selection
+- `POST /play` - Start playback
+- `POST /stop` - Stop playback
+
+**Public endpoints** (always accessible):
+- `GET /` - Web console
+- `GET /health` - Health check
+- `GET /devices` - List devices
+- `GET /devices/current` - Current device
+- `GET /status` - Playback status
+
+**Usage with authentication enabled:**
+```bash
+# Without API key - returns 401 Unauthorized
+curl -X POST http://localhost:5000/play
+
+# With valid API key - works
+curl -X POST http://localhost:5000/play \
+  -H "X-API-Key: your-32-character-random-key-here"
+```
+
+#### 2. Rate Limiting (Optional)
+
+**Default state:** `rate_limit_enabled: false` - **no rate limiting applied**
+
+**To enable rate limiting:**
+
+1. Install Flask-Limiter:
+```bash
+pip install Flask-Limiter==3.5.0
+```
+
+2. Enable in config:
+```yaml
+security:
+  rate_limit_enabled: true
+  rate_limit_default: "100 per hour"  # Adjust as needed
+```
+
+**Important:** Rate limiting applies to ALL endpoints when enabled.
+
+#### Security Best Practices
+
+**DO** for production:
+- Enable API authentication (`api_auth_enabled: true`)
+- Use strong random API key (minimum 32 characters)
+- Store API key securely (environment variables, secrets manager)
+- Enable rate limiting to prevent abuse
+- Use HTTPS reverse proxy (nginx, Traefik)
+- Run behind firewall with restricted access
+
+**DON'T** for production:
+- Leave authentication disabled (`api_auth_enabled: false`)
+- Use weak or guessable API keys
+- Expose directly to internet without reverse proxy
+- Commit API keys to git
+
+See [SECURITY.md](SECURITY.md) for comprehensive security guide and deployment checklist.
 
 ## API Reference
 

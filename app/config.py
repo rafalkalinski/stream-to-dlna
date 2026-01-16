@@ -64,3 +64,82 @@ class Config:
     def stream_public_url(self) -> str:
         """Get public URL for stream (optional, overrides auto-detection)."""
         return self.get('streaming.public_url', '')
+
+    # Timeout settings
+    @property
+    def http_request_timeout(self) -> int:
+        """Get HTTP request timeout in seconds."""
+        return self.get('timeouts.http_request', 10)
+
+    @property
+    def stream_detection_timeout(self) -> int:
+        """Get stream detection timeout in seconds."""
+        return self.get('timeouts.stream_detection', 5)
+
+    @property
+    def device_discovery_timeout(self) -> int:
+        """Get device discovery timeout in seconds."""
+        return self.get('timeouts.device_discovery', 10)
+
+    @property
+    def ffmpeg_startup_timeout(self) -> int:
+        """Get FFmpeg startup timeout in seconds."""
+        return self.get('timeouts.ffmpeg_startup', 10)
+
+    # Security settings
+    @property
+    def rate_limit_enabled(self) -> bool:
+        """Check if rate limiting is enabled."""
+        return self.get('security.rate_limit_enabled', False)
+
+    @property
+    def rate_limit_default(self) -> str:
+        """Get default rate limit."""
+        return self.get('security.rate_limit_default', '100 per hour')
+
+    @property
+    def api_auth_enabled(self) -> bool:
+        """Check if API authentication is enabled."""
+        return self.get('security.api_auth_enabled', False)
+
+    @property
+    def api_key(self) -> str:
+        """Get API key."""
+        return self.get('security.api_key', '')
+
+    # Performance settings
+    @property
+    def gunicorn_workers(self) -> int:
+        """Get number of Gunicorn workers."""
+        return self.get('performance.gunicorn_workers', 1)
+
+    @property
+    def gunicorn_threads(self) -> int:
+        """Get number of threads per Gunicorn worker."""
+        return self.get('performance.gunicorn_threads', 4)
+
+    @property
+    def connection_pool_size(self) -> int:
+        """Get HTTP connection pool size."""
+        return self.get('performance.connection_pool_size', 10)
+
+    @property
+    def connection_pool_maxsize(self) -> int:
+        """Get HTTP connection pool max size."""
+        return self.get('performance.connection_pool_maxsize', 20)
+
+    # FFmpeg settings
+    @property
+    def ffmpeg_chunk_size(self) -> int:
+        """Get FFmpeg chunk size for streaming."""
+        return self.get('ffmpeg.chunk_size', 8192)
+
+    @property
+    def ffmpeg_max_stderr_lines(self) -> int:
+        """Get max FFmpeg stderr lines to buffer."""
+        return self.get('ffmpeg.max_stderr_lines', 1000)
+
+    @property
+    def ffmpeg_protocol_whitelist(self) -> str:
+        """Get FFmpeg protocol whitelist."""
+        return self.get('ffmpeg.protocol_whitelist', 'http,https,tcp,tls')
