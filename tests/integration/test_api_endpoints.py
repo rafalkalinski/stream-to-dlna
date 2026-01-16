@@ -70,7 +70,7 @@ class TestPlaybackEndpoints:
 
     def test_play_without_device_selected(self, client):
         """POST /play returns 400 when no device selected."""
-        response = client.post('/play')
+        response = client.post('/play?streamUrl=http://example.com/stream.mp3')
         assert response.status_code == 400
         data = json.loads(response.data)
         assert 'message' in data
