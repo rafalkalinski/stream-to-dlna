@@ -63,6 +63,12 @@
             color: #8b949e;
             font-weight: 400;
         }
+        .build-info {
+            font-size: 11px;
+            color: #6e7681;
+            font-weight: 400;
+            font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+        }
         .header-links {
             margin-bottom: 15px;
             font-size: 13px;
@@ -249,6 +255,9 @@
             <h1>
                 DLNA Radio Streamer
                 <span class="version-badge">v{{ version }}</span>
+                {% if build_hash != 'dev' %}
+                <span class="build-info">({{ build_hash }})</span>
+                {% endif %}
             </h1>
             <div class="header-links">
                 <a href="https://github.com/rafalkalinski/stream-to-dlna" target="_blank">
