@@ -185,6 +185,49 @@ class DLNAClient:
         logger.debug(f"GetTransportInfo failed after {retries + 1} attempts: {last_error}")
         return None
 
+    def _get_protocol_info_for_mime(self, mime_type: str) -> str | None:
+        """
+        Get the exact protocolInfo string from device capabilities for a given MIME type.
+        Tries exact match first, then fallback to alternative MIME types (e.g., audio/aac -> audio/mp4).
+
+        Args:
+            mime_type: MIME type to search for (e.g., 'audio/mpeg', 'audio/aac')
+
+        Returns:
+            Full protocolInfo string from device, or None if not found
+        """
+        if not self.capabilities or not self.capabilities.get('raw_protocol_info'):
+            return None
+
+        raw_info = self.capabilities['raw_protocol_info']
+        protocols = raw_info.split(',')
+
+        # Build list of MIME types to try (in order of preference)
+        mime_types_to_try = [mime_type.lower()]
+
+        # Add fallback MIME types for AAC
+        if 'aac' in mime_type.lower():
+            # Try audio/mp4 first (most common for AAC in DLNA)
+            mime_types_to_try = ['audio/mp4', 'audio/aac', 'audio/aacp', 'audio/x-aac']
+        elif 'mp3' in mime_type.lower() or 'mpeg' in mime_type.lower():
+            mime_types_to_try = ['audio/mpeg', 'audio/mp3']
+
+        # Search for matching protocol info
+        for mime_to_search in mime_types_to_try:
+            for proto in protocols:
+                proto_lower = proto.lower()
+                # Format is: http-get:*:audio/mpeg:DLNA.ORG_PN=MP3;...
+                # Extract MIME type from protocol string (third field)
+                parts = proto.split(':')
+                if len(parts) >= 3:
+                    proto_mime = parts[2].lower()
+                    if proto_mime == mime_to_search and 'http-get' in proto_lower:
+                        logger.info(f"Found matching protocol for {mime_type} using {mime_to_search}: {proto.strip()}")
+                        return proto.strip()
+
+        logger.warning(f"No matching protocol found for {mime_type} (tried: {mime_types_to_try})")
+        return None
+
     def _build_didl_metadata(self, url: str, title: str = "Audio Stream", mime_type: str = "audio/mpeg") -> str:
         """
         Build DIDL-Lite metadata XML for the stream with proper DLNA flags.
@@ -210,28 +253,35 @@ class DLNAClient:
                           .replace('"', '&quot;')
                           .replace("'", '&apos;'))
 
-        # Determine DLNA profile name based on MIME type
-        if 'mpeg' in mime_type.lower() or 'mp3' in mime_type.lower():
-            dlna_pn = "MP3"
-        elif 'aac' in mime_type.lower() or 'mp4' in mime_type.lower():
-            dlna_pn = "AAC_ISO"
-        elif 'flac' in mime_type.lower():
-            dlna_pn = "FLAC"
-        else:
-            dlna_pn = "MP3"  # Default fallback
+        # Try to get exact protocolInfo from device capabilities first
+        protocol_info = self._get_protocol_info_for_mime(mime_type)
 
-        # Build protocolInfo with DLNA flags
-        # DLNA.ORG_OP=01: time seek supported
-        # DLNA.ORG_CI=0: no transcoding
-        # DLNA.ORG_FLAGS=01700000000000000000000000000000: streaming mode flags
-        protocol_info = (f"http-get:*:{mime_type}:"
-                        f"DLNA.ORG_PN={dlna_pn};"
-                        f"DLNA.ORG_OP=01;"
-                        f"DLNA.ORG_CI=0;"
-                        f"DLNA.ORG_FLAGS=01700000000000000000000000000000")
+        if not protocol_info:
+            # Fallback: Build protocolInfo manually
+            logger.debug(f"Device doesn't declare support for {mime_type}, building protocolInfo manually")
 
-        # Build DIDL-Lite XML
-        metadata = f'''<DIDL-Lite xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/" xmlns:dlna="urn:schemas-dlna-org:device-1-0">
+            # Determine DLNA profile name based on MIME type
+            if 'mpeg' in mime_type.lower() or 'mp3' in mime_type.lower():
+                dlna_pn = "MP3"
+            elif 'aac' in mime_type.lower() or 'mp4' in mime_type.lower():
+                dlna_pn = "AAC_ISO"
+            elif 'flac' in mime_type.lower():
+                dlna_pn = "FLAC"
+            else:
+                dlna_pn = "MP3"  # Default fallback
+
+            # Build protocolInfo with DLNA flags
+            # DLNA.ORG_OP=01: time seek supported
+            # DLNA.ORG_CI=0: no transcoding
+            # DLNA.ORG_FLAGS=01700000000000000000000000000000: streaming mode flags
+            protocol_info = (f"http-get:*:{mime_type}:"
+                            f"DLNA.ORG_PN={dlna_pn};"
+                            f"DLNA.ORG_OP=01;"
+                            f"DLNA.ORG_CI=0;"
+                            f"DLNA.ORG_FLAGS=01700000000000000000000000000000")
+
+        # Build DIDL-Lite XML - exact format from Gemini example
+        metadata = f'''<DIDL-Lite xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/" xmlns:dlna="urn:schemas-upnp-org:metadata-1-0/dlna/">
   <item id="0" parentID="-1" restricted="1">
     <dc:title>{title_escaped}</dc:title>
     <upnp:class>object.item.audioItem.musicTrack</upnp:class>
@@ -239,6 +289,7 @@ class DLNAClient:
   </item>
 </DIDL-Lite>'''
 
+        logger.debug(f"Generated DIDL metadata:\n{metadata}")
         return metadata
 
     def play_url(self, url: str, title: str = "Audio Stream", mime_type: str = "audio/mpeg") -> bool:
@@ -336,6 +387,9 @@ class DLNAClient:
         }
 
         if protocol_info:
+            # Log first 500 chars to see what device actually supports
+            logger.debug(f"Raw protocol info (first 500 chars): {protocol_info[:500]}")
+
             # Parse protocol info - format is comma-separated list of:
             # protocol:network:contentFormat:additionalInfo
             # e.g., http-get:*:audio/mpeg:*
@@ -345,10 +399,13 @@ class DLNAClient:
                 proto_lower = proto.lower()
                 if 'audio/mpeg' in proto_lower or 'audio/mp3' in proto_lower:
                     capabilities['supports_mp3'] = True
+                    logger.debug(f"Found MP3 support: {proto.strip()}")
                 if 'audio/aac' in proto_lower or 'audio/x-aac' in proto_lower or 'audio/mp4' in proto_lower:
                     capabilities['supports_aac'] = True
+                    logger.debug(f"Found AAC support: {proto.strip()}")
                 if 'audio/flac' in proto_lower or 'audio/x-flac' in proto_lower:
                     capabilities['supports_flac'] = True
+                    logger.debug(f"Found FLAC support: {proto.strip()}")
                 if 'audio/wav' in proto_lower or 'audio/x-wav' in proto_lower:
                     capabilities['supports_wav'] = True
                 if 'audio/ogg' in proto_lower or 'audio/x-ogg' in proto_lower:
