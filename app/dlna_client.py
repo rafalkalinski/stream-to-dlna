@@ -75,10 +75,13 @@ class DLNAClient:
     def set_av_transport_uri(self, uri: str, metadata: str = "") -> bool:
         """Set the URI of the media to play.
 
-        Note: Uses 30s timeout as some devices (e.g., Panasonic PMX9) need time
-        to process metadata and prepare for streaming.
+        Note: Uses 15s timeout as some devices need time to validate the stream URL.
         """
         logger.info(f"Setting AV Transport URI to {uri}")
+
+        # Log metadata length for debugging
+        if metadata:
+            logger.debug(f"Metadata length: {len(metadata)} bytes")
 
         # Escape XML entities in URI
         uri_escaped = uri.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
@@ -88,8 +91,18 @@ class DLNAClient:
             'CurrentURIMetaData': metadata
         }
 
-        # Use 30s timeout for SetAVTransportURI (some devices are slow)
-        response = self._send_soap_request('SetAVTransportURI', arguments, timeout=30)
+        # Use 15s timeout for SetAVTransportURI
+        # Devices may need time to validate stream URL connectivity
+        import time
+        start_time = time.time()
+        response = self._send_soap_request('SetAVTransportURI', arguments, timeout=15)
+        elapsed = time.time() - start_time
+
+        if response:
+            logger.info(f"SetAVTransportURI succeeded in {elapsed:.2f}s")
+        else:
+            logger.error(f"SetAVTransportURI failed after {elapsed:.2f}s")
+
         return response is not None
 
     def play(self, speed: str = "1") -> bool:
