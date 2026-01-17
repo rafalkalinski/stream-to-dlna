@@ -100,3 +100,15 @@ ffmpeg:
   # Protocol whitelist - SECURITY: restricts FFmpeg to safe protocols
   # Do not add 'file' protocol unless you understand security implications
   protocol_whitelist: "http,https,tcp,tls"
+
+# Storage settings
+storage:
+  # Data directory for persistent storage (cache, state)
+  # Docker: Mount this as volume in docker-compose.yml
+  # Local: Use relative path like "./data" or absolute path
+  data_dir: "/data"
+
+  # Stream format cache TTL in seconds
+  # Cache stores detected stream formats (Content-Type, ffprobe results)
+  # Default: 86400 (24 hours)
+  stream_cache_ttl: 86400

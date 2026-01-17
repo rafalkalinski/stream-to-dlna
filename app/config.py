@@ -148,3 +148,14 @@ class Config:
     def ffmpeg_protocol_whitelist(self) -> str:
         """Get FFmpeg protocol whitelist."""
         return self.get('ffmpeg.protocol_whitelist', 'http,https,tcp,tls')
+
+    # Storage settings
+    @property
+    def data_dir(self) -> str:
+        """Get data directory for persistent storage."""
+        return self.get('storage.data_dir', '/data')
+
+    @property
+    def stream_cache_ttl(self) -> int:
+        """Get stream format cache TTL in seconds."""
+        return self.get('storage.stream_cache_ttl', 86400)  # 24 hours default

@@ -1,8 +1,10 @@
 """Main Flask application for DLNA Radio Streamer."""
 
+import json
 import logging
 import re
 import socket
+import subprocess
 import sys
 from urllib.parse import urlparse
 
@@ -14,6 +16,7 @@ from app.discovery import SSDPDiscovery
 from app.dlna_client import DLNAClient
 from app.http_client import http_client
 from app.security import init_rate_limiter, require_api_key
+from app.stream_cache import StreamFormatCache
 from app.streamer import AudioStreamer, PassthroughStreamer
 
 # Configure logging
@@ -68,6 +71,7 @@ config: Config | None = None
 streamer: AudioStreamer | PassthroughStreamer | None = None
 dlna_client: DLNAClient | None = None
 device_manager: DeviceManager | None = None
+stream_cache: StreamFormatCache | None = None
 rate_limiter = None  # Will be initialized after config is loaded
 
 
@@ -190,13 +194,101 @@ def _create_dlna_client_from_device(device_info: dict) -> DLNAClient:
     )
 
 
-def _detect_stream_format(stream_url: str) -> str | None:
+def _detect_format_with_ffprobe(stream_url: str) -> str | None:
     """
-    Detect stream content type by making a HEAD request.
+    Detect stream format using ffprobe as fallback.
+
+    Args:
+        stream_url: URL of the stream
 
     Returns:
         MIME type string or None
     """
+    try:
+        logger.info("Attempting format detection with ffprobe")
+
+        # Use ffprobe to analyze stream
+        # -analyzeduration and -probesize limit how much data is downloaded
+        cmd = [
+            'ffprobe',
+            '-v', 'quiet',
+            '-print_format', 'json',
+            '-show_format',
+            '-show_streams',
+            '-analyzeduration', '2000000',  # 2 seconds
+            '-probesize', '1000000',  # 1MB
+            stream_url
+        ]
+
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+
+        if result.returncode != 0:
+            logger.warning(f"ffprobe failed: {result.stderr}")
+            return None
+
+        data = json.loads(result.stdout)
+
+        # Extract codec information
+        streams = data.get('streams', [])
+        if not streams:
+            logger.warning("ffprobe found no streams")
+            return None
+
+        # Get audio codec from first audio stream
+        audio_stream = next((s for s in streams if s.get('codec_type') == 'audio'), None)
+        if not audio_stream:
+            logger.warning("ffprobe found no audio streams")
+            return None
+
+        codec_name = audio_stream.get('codec_name', '').lower()
+        logger.info(f"ffprobe detected codec: {codec_name}")
+
+        # Map codec to MIME type
+        codec_to_mime = {
+            'aac': 'audio/aac',
+            'mp3': 'audio/mpeg',
+            'flac': 'audio/flac',
+            'vorbis': 'audio/ogg',
+            'opus': 'audio/ogg',
+            'pcm_s16le': 'audio/wav',
+            'pcm_s24le': 'audio/wav',
+        }
+
+        mime_type = codec_to_mime.get(codec_name)
+        if mime_type:
+            logger.info(f"ffprobe mapped codec '{codec_name}' to MIME type: {mime_type}")
+            return mime_type
+        else:
+            logger.warning(f"Unknown codec '{codec_name}', cannot map to MIME type")
+            return None
+
+    except subprocess.TimeoutExpired:
+        logger.warning("ffprobe timed out")
+        return None
+    except Exception as e:
+        logger.warning(f"ffprobe detection failed: {e}")
+        return None
+
+
+def _detect_stream_format(stream_url: str) -> str | None:
+    """
+    Detect stream content type using cache, HEAD request, and ffprobe fallback.
+
+    Returns:
+        MIME type string or None
+    """
+    # Check cache first
+    if stream_cache:
+        cached = stream_cache.get(stream_url)
+        if cached:
+            return cached.get('mime_type')
+
+    # Try HEAD request
     try:
         timeout = config.stream_detection_timeout if config else 5
         logger.info(f"Detecting stream format for: {stream_url}")
@@ -214,14 +306,27 @@ def _detect_stream_format(stream_url: str) -> str | None:
             # Extract just the MIME type (before any semicolon)
             # Add length limit for security
             mime_type = content_type.split(';')[0].strip()[:100]
-            logger.info(f"Detected stream Content-Type: {mime_type}")
+            logger.info(f"Detected stream Content-Type via HEAD: {mime_type}")
+
+            # Cache the result
+            if stream_cache:
+                stream_cache.set(stream_url, mime_type, 'head')
+
             return mime_type
         else:
-            logger.warning("Stream did not return Content-Type header")
-    except Exception as e:
-        logger.warning(f"Could not detect stream format: {e}")
+            logger.warning("Stream did not return Content-Type header in HEAD response")
 
-    return None
+    except Exception as e:
+        logger.warning(f"HEAD request failed: {e}")
+
+    # Fallback to ffprobe
+    logger.info("Falling back to ffprobe for format detection")
+    mime_type = _detect_format_with_ffprobe(stream_url)
+
+    if mime_type and stream_cache:
+        stream_cache.set(stream_url, mime_type, 'ffprobe')
+
+    return mime_type
 
 
 def _background_device_scan():
@@ -315,7 +420,7 @@ def _background_device_scan():
 
 def initialize():
     """Initialize application components."""
-    global config, dlna_client, device_manager, rate_limiter
+    global config, dlna_client, device_manager, stream_cache, rate_limiter
 
     config = Config()
     logger.info("Configuration loaded")
@@ -328,6 +433,13 @@ def initialize():
 
     # Initialize rate limiter if enabled
     rate_limiter = init_rate_limiter(app, config)
+
+    # Initialize stream format cache
+    stream_cache = StreamFormatCache(
+        data_dir=config.data_dir,
+        ttl=config.stream_cache_ttl
+    )
+    logger.info(f"Stream format cache initialized (TTL: {config.stream_cache_ttl}s)")
 
     # Initialize device manager
     device_manager = DeviceManager()
