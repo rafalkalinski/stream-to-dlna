@@ -4,9 +4,6 @@ services:
   stream-to-dlna:
     build:
       context: .
-      args:
-        - BUILD_HASH=${BUILD_HASH:-dev}
-        - BUILD_DATE=${BUILD_DATE:-unknown}
     image: stream-to-dlna:latest
     container_name: stream-to-dlna
     restart: unless-stopped
@@ -16,7 +13,7 @@ services:
       - ./data:/data
     environment:
       - TZ=Europe/Warsaw
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}  # Set to DEBUG for detailed logs
+      - LOG_LEVEL=DEBUG
     logging:
       driver: "json-file"
       options:

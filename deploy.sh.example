@@ -23,8 +23,9 @@ if [ $? -eq 0 ]; then
 
     # Build the docker images with build arguments
     # BuildKit will cache apt and pip downloads for much faster rebuilds
-    # Build args are passed via environment variables (see docker-compose.yaml)
-    sudo -E docker compose build
+    sudo docker compose build \
+        --build-arg BUILD_HASH="${BUILD_HASH}" \
+        --build-arg BUILD_DATE="${BUILD_DATE}"
 
     if [ $? -eq 0 ]; then
         echo ""
