@@ -4,21 +4,33 @@ All notable changes to this project will be documented in this file.
 
 ## [v0.4] - 2026-01-17
 
-User experience improvements and enhanced codec detection.
+User experience improvements, enhanced codec detection, and persistent stream format caching.
 
 ### Added
 - **Default Device IP Configuration**: New `dlna.default_device_ip` config option for automatic device selection on startup
 - **GUI Enter Key Support**: All input fields now respond to Enter key for improved usability
 - **Enhanced AAC Detection**: Improved codec detection for AAC streams (supports audio/aac, audio/aacp, audio/adts, audio/m4a)
+- **Stream Format Cache**: Persistent cache for stream format detection results with configurable TTL
+  - Stores Content-Type and ffprobe results in `/data/stream_format_cache.json`
+  - Configurable TTL (default: 24 hours)
+  - Reduces unnecessary HEAD requests and ffprobe analysis
+- **FFprobe Fallback**: Automatic fallback to ffprobe when streams don't return Content-Type header
+  - Analyzes first 2 seconds / 1MB of stream
+  - Maps codec (aac, mp3, flac, vorbis, opus) to MIME type
+  - Results are cached for future requests
+- **Persistent Storage Configuration**: New `storage.data_dir` config option for Docker volume mounting
 - **Stream Detection Logging**: Enhanced logging for troubleshooting transcoding decisions
 
 ### Changed
 - **Auto-Select Logic**: Devices configured with `default_device_ip` are automatically selected after discovery scan
 - **Codec Detection**: Expanded AAC MIME type recognition for better passthrough mode detection
 - **Logging Verbosity**: Added detailed logs for stream redirects, Content-Type detection, and transcoding decisions
+- **Data Directory**: All persistent data now stored in configurable directory (default: `/data`)
 
 ### Fixed
 - **AAC Passthrough**: Streams with AAC codec now correctly use passthrough mode when device supports it
+  - Fixed issue with streams that redirect and don't return Content-Type header
+  - FFprobe fallback ensures codec is detected even without HTTP headers
 - **Stream Redirect Handling**: Better logging for streams with multiple redirects
 
 ## [v0.3] - 2026-01-16

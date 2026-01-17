@@ -18,6 +18,8 @@ Stream internet radio to DLNA devices with automatic format detection and smart 
 - Network discovery with SSDP/UPnP
 - Smart transcoding: passthrough when device supports native format, FFmpeg when transcoding needed
   - Enhanced AAC codec detection (audio/aac, audio/aacp, audio/adts, audio/m4a)
+  - FFprobe fallback for streams without Content-Type header
+  - Persistent cache for stream format detection (configurable TTL)
 - Multi-device support with persistent device selection
   - **Auto-select default device**: Configure `dlna.default_device_ip` for automatic selection on startup
 - Device cache with configurable TTL (default 2 hours)
@@ -54,6 +56,9 @@ cd stream-to-dlna
 # Create your config from example
 cp config.example.yaml config.yaml
 # Edit config.yaml with your settings
+
+# The ./data directory will be auto-created for persistent storage
+# (stream format cache, device state)
 docker-compose up -d
 ```
 
@@ -115,6 +120,11 @@ streaming:
   port: 8080
   mp3_bitrate: "128k"
   # public_url: "http://radio.yourdomain.local"
+
+# Persistent storage (optional, defaults shown)
+storage:
+  data_dir: "/data"          # Docker volume mount point
+  stream_cache_ttl: 86400    # 24 hours
 
 # Network timeouts (optional, defaults shown)
 timeouts:
