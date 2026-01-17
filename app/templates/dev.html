@@ -256,7 +256,7 @@
                 DLNA Radio Streamer
                 <span class="version-badge">v{{ version }}</span>
                 {% if build_hash != 'dev' %}
-                <span class="build-info">({{ build_hash }})</span>
+                <span class="build-info">({{ build_hash }} @ {{ build_date[:16] }})</span>
                 {% endif %}
             </h1>
             <div class="header-links">
