@@ -581,10 +581,10 @@ def play():
 
                 can_play_native = active_client.can_play_format(stream_format)
                 if can_play_native:
-                    logger.info(f"✓ Device supports {stream_format} natively - using passthrough mode (no transcoding)")
+                    logger.info(f"Device supports {stream_format} natively - using passthrough mode (no transcoding)")
                     needs_transcoding = False
                 else:
-                    logger.warning(f"✗ Device does not support {stream_format} - transcoding to MP3 required")
+                    logger.warning(f"Device does not support {stream_format} - transcoding to MP3 required")
             else:
                 logger.warning("Device capabilities not available - defaulting to transcoding")
         else:
