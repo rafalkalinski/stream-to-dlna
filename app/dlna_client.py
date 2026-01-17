@@ -62,7 +62,7 @@ class DLNAClient:
                 logger.error(f"SOAP action {action} failed: {response.status_code} - {response.text}")
                 return None
 
-        except requests.exceptions.RequestException as e:
+        except Exception as e:
             logger.error(f"Failed to send SOAP request {action}: {e}")
             return None
 
