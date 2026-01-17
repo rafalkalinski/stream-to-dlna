@@ -799,8 +799,25 @@ def play():
             streamer.start()
             playback_url = stream_url
 
-        # Send to DLNA device
-        success = active_client.play_url(playback_url)
+        # Extract title from URL or use default
+        from urllib.parse import urlparse
+        parsed_url = urlparse(stream_url)
+        stream_title = parsed_url.hostname or "Radio Stream"
+
+        # Determine MIME type for metadata
+        # If transcoding, always use audio/mpeg (MP3)
+        # If passthrough, use detected format
+        if needs_transcoding:
+            metadata_mime_type = "audio/mpeg"
+        else:
+            metadata_mime_type = stream_format or "audio/mpeg"
+
+        # Send to DLNA device with proper metadata
+        success = active_client.play_url(
+            playback_url,
+            title=stream_title,
+            mime_type=metadata_mime_type
+        )
 
         if success:
             return jsonify({

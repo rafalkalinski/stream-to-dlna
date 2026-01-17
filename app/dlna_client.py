@@ -185,9 +185,80 @@ class DLNAClient:
         logger.debug(f"GetTransportInfo failed after {retries + 1} attempts: {last_error}")
         return None
 
-    def play_url(self, url: str) -> bool:
-        """Set URI and start playback in one call."""
-        if not self.set_av_transport_uri(url):
+    def _build_didl_metadata(self, url: str, title: str = "Audio Stream", mime_type: str = "audio/mpeg") -> str:
+        """
+        Build DIDL-Lite metadata XML for the stream with proper DLNA flags.
+
+        Args:
+            url: Stream URL
+            title: Stream title
+            mime_type: MIME type of the stream (e.g., 'audio/mpeg', 'audio/aac')
+
+        Returns:
+            DIDL-Lite XML string
+        """
+        # Escape XML entities
+        title_escaped = (title.replace('&', '&amp;')
+                              .replace('<', '&lt;')
+                              .replace('>', '&gt;')
+                              .replace('"', '&quot;')
+                              .replace("'", '&apos;'))
+
+        url_escaped = (url.replace('&', '&amp;')
+                          .replace('<', '&lt;')
+                          .replace('>', '&gt;')
+                          .replace('"', '&quot;')
+                          .replace("'", '&apos;'))
+
+        # Determine DLNA profile name based on MIME type
+        if 'mpeg' in mime_type.lower() or 'mp3' in mime_type.lower():
+            dlna_pn = "MP3"
+        elif 'aac' in mime_type.lower() or 'mp4' in mime_type.lower():
+            dlna_pn = "AAC_ISO"
+        elif 'flac' in mime_type.lower():
+            dlna_pn = "FLAC"
+        else:
+            dlna_pn = "MP3"  # Default fallback
+
+        # Build protocolInfo with DLNA flags
+        # DLNA.ORG_OP=01: time seek supported
+        # DLNA.ORG_CI=0: no transcoding
+        # DLNA.ORG_FLAGS=01700000000000000000000000000000: streaming mode flags
+        protocol_info = (f"http-get:*:{mime_type}:"
+                        f"DLNA.ORG_PN={dlna_pn};"
+                        f"DLNA.ORG_OP=01;"
+                        f"DLNA.ORG_CI=0;"
+                        f"DLNA.ORG_FLAGS=01700000000000000000000000000000")
+
+        # Build DIDL-Lite XML
+        metadata = f'''<DIDL-Lite xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/" xmlns:dlna="urn:schemas-dlna-org:device-1-0">
+  <item id="0" parentID="-1" restricted="1">
+    <dc:title>{title_escaped}</dc:title>
+    <upnp:class>object.item.audioItem.musicTrack</upnp:class>
+    <res protocolInfo="{protocol_info}">{url_escaped}</res>
+  </item>
+</DIDL-Lite>'''
+
+        return metadata
+
+    def play_url(self, url: str, title: str = "Audio Stream", mime_type: str = "audio/mpeg") -> bool:
+        """
+        Set URI and start playback in one call with proper DIDL-Lite metadata.
+
+        Args:
+            url: Stream URL to play
+            title: Stream title for metadata
+            mime_type: MIME type of the stream
+
+        Returns:
+            True if successful, False otherwise
+        """
+        # Build DIDL-Lite metadata
+        metadata = self._build_didl_metadata(url, title, mime_type)
+
+        logger.debug(f"Setting URI with metadata: {metadata[:200]}...")
+
+        if not self.set_av_transport_uri(url, metadata):
             return False
 
         # Small delay to let the device process the URI
