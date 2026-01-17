@@ -64,6 +64,7 @@ Thumbs.db
 # Project specific
 config.yaml
 config.local.yaml
+deploy.sh
 *.log
 /data/
 
