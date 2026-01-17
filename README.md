@@ -60,6 +60,10 @@ cp config.example.yaml config.yaml
 # The ./data directory will be auto-created for persistent storage
 # (stream format cache, device state)
 docker-compose up -d
+
+# Optional: Build with version info (git commit hash)
+./build.sh
+docker-compose up -d
 ```
 
 ### Development (Local)

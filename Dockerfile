@@ -1,5 +1,13 @@
 FROM python:3.14-slim
 
+# Build arguments for versioning
+ARG BUILD_HASH=dev
+ARG BUILD_DATE=unknown
+
+# Set as environment variables for runtime access
+ENV BUILD_HASH=${BUILD_HASH}
+ENV BUILD_DATE=${BUILD_DATE}
+
 # Install FFmpeg and clean up in single layer to reduce image size
 RUN apt-get update && \
     apt-get install -y --no-install-recommends ffmpeg && \
