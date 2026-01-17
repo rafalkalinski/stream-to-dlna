@@ -149,29 +149,29 @@ class SSDPDiscovery:
         return devices
 
     @staticmethod
-    def try_direct_connection(host: str, timeout: int = 3) -> dict[str, str] | None:
+    def try_direct_connection(host: str, timeout: int = 5) -> dict[str, str] | None:
         """
         Try to connect directly to a device by IP/hostname.
         Attempts common device description XML paths.
 
         Args:
             host: IP address or hostname
-            timeout: Timeout for attempts
+            timeout: Timeout for each attempt (default: 5s)
 
         Returns:
             Device information dictionary or None if not found
         """
-        # Common device description paths
+        # Common device description paths (most likely first)
         common_paths = [
             '/description.xml',
-            '/dmr',
             '/rootDesc.xml',
+            '/dmr',
             '/upnpd/description.xml',
-            '/AVTransport/ctrl'  # Some devices
+            '/AVTransport/ctrl'
         ]
 
-        # Common ports for DLNA devices
-        common_ports = [8080, 9197, 49152, 49153, 49154, 80]
+        # Common ports for DLNA devices (most common first)
+        common_ports = [8080, 49152, 9197, 49153, 49154, 80]
 
         logger.info(f"Attempting direct connection to {host}")
 
@@ -185,6 +185,9 @@ class SSDPDiscovery:
                         device_info = SSDPDiscovery._fetch_device_info(location)
                         if device_info:
                             return device_info
+                except requests.exceptions.Timeout:
+                    logger.debug(f"Timeout connecting to {location}")
+                    continue
                 except Exception:
                     continue
 
