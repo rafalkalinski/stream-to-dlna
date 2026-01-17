@@ -14,12 +14,16 @@ echo "  BUILD_HASH: ${BUILD_HASH}"
 echo "  BUILD_DATE: ${BUILD_DATE}"
 echo ""
 
-# Build Docker image with build args
-docker build \
-  --build-arg BUILD_HASH="${BUILD_HASH}" \
-  --build-arg BUILD_DATE="${BUILD_DATE}" \
-  -t stream-to-dlna:latest \
-  .
+# Create .env file for docker-compose
+cat > .env <<EOF
+BUILD_HASH=${BUILD_HASH}
+BUILD_DATE=${BUILD_DATE}
+EOF
+
+echo "Created .env file with build info"
+
+# Build using docker-compose (reads .env automatically)
+docker-compose build
 
 echo ""
 echo "Build complete!"

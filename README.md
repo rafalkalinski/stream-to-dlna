@@ -59,12 +59,19 @@ cp config.example.yaml config.yaml
 
 # The ./data directory will be auto-created for persistent storage
 # (stream format cache, device state)
-docker-compose up -d
 
-# Optional: Build with version info (git commit hash)
+# Build with version info (recommended - shows git commit hash in GUI)
 ./build.sh
+
+# Start the service
 docker-compose up -d
 ```
+
+The `build.sh` script automatically:
+- Captures current git commit hash
+- Records build timestamp
+- Creates `.env` file for docker-compose
+- Shows version info in GUI: `v0.4.0 (3c90d1a @ 2026-01-17T11:45)`
 
 ### Development (Local)
 
