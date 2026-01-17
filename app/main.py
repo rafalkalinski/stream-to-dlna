@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 
 from flask import Flask, jsonify, render_template, request
 
+from app import __version__
 from app.config import Config
 from app.device_manager import DeviceManager
 from app.discovery import SSDPDiscovery
@@ -515,7 +516,8 @@ def index():
     return render_template(
         'dev.html',
         default_stream_url=config.default_stream_url,
-        default_device_ip=config.default_device_ip
+        default_device_ip=config.default_device_ip,
+        version=__version__
     )
 
 
