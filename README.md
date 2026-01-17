@@ -57,21 +57,31 @@ cd stream-to-dlna
 cp config.example.yaml config.yaml
 # Edit config.yaml with your settings
 
-# The ./data directory will be auto-created for persistent storage
-# (stream format cache, device state)
+# Create deployment script from template
+cp deploy.sh.example deploy.sh
+chmod +x deploy.sh
 
-# Build with version info (recommended - shows git commit hash in GUI)
-./build.sh
-
-# Start the service
-docker-compose up -d
+# Build and start
+./deploy.sh
+docker compose up -d
 ```
 
-The `build.sh` script automatically:
-- Captures current git commit hash
-- Records build timestamp
-- Creates `.env` file for docker-compose
+The `deploy.sh` script automatically:
+- Pulls latest changes from git
+- Captures current git commit hash and build timestamp
+- Builds Docker image with BuildKit (faster builds with layer caching)
 - Shows version info in GUI: `v0.4.0 (3c90d1a @ 2026-01-17T11:45)`
+
+**Performance:** First build ~2 minutes, rebuilds ~10-20 seconds (thanks to BuildKit cache)
+
+### Logging
+
+Edit `docker-compose.yaml` to control log verbosity:
+```yaml
+environment:
+  - LOG_LEVEL=INFO   # Production: INFO or WARNING
+  - LOG_LEVEL=DEBUG  # Development: DEBUG for detailed logs
+```
 
 ### Development (Local)
 

@@ -19,20 +19,3 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-
-# For SSDP discovery to work in Docker bridge networks, you need to use
-# dual-network setup with macvlan. Example configuration:
-#
-# services:
-#   stream-to-dlna:
-#     networks:
-#       your-macvlan-network:
-#         ipv4_address: 192.168.x.x  # Choose free IP in your LAN
-#       your-npm-bridge:
-#         ipv4_address: 172.x.x.x    # Choose free IP in bridge
-#
-# networks:
-#   your-macvlan-network:
-#     external: true
-#   your-npm-bridge:
-#     external: true
