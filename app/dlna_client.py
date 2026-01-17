@@ -323,9 +323,10 @@ class DLNAClient:
         if not self.set_av_transport_uri(url, metadata):
             return False
 
-        # Small delay to let the device process the URI
+        # Wait for device to process URI before sending Play command
+        # Some devices (e.g., Panasonic PMX9) need time to prepare stream
         import time
-        time.sleep(0.5)
+        time.sleep(1.0)
 
         return self.play()
 
