@@ -329,6 +329,62 @@ def _detect_stream_format(stream_url: str) -> str | None:
     return mime_type
 
 
+def _try_auto_select_default_device():
+    """
+    Try to auto-select default device if configured.
+
+    Called both on startup and after background scan.
+    """
+    global dlna_client
+
+    if not config or not config.default_device_ip:
+        return
+
+    default_ip = config.default_device_ip
+
+    # Check if already selected with correct IP
+    current = device_manager.get_current_device()
+    if current and current.get('ip') == default_ip:
+        logger.info(f"Default device already selected: {current.get('friendly_name', 'Unknown')} ({default_ip})")
+        return
+
+    logger.info(f"Auto-selecting default device: {default_ip}")
+
+    # Try to find device in cache
+    device_info = device_manager.find_device_in_cache(ip=default_ip)
+
+    # If not in cache, try direct connection
+    if not device_info:
+        logger.info(f"Default device {default_ip} not in cache, trying direct connection")
+        try:
+            device_info = SSDPDiscovery.try_direct_connection(default_ip)
+        except Exception as e:
+            logger.warning(f"Direct connection to {default_ip} failed: {e}")
+
+    if not device_info:
+        logger.warning(f"Could not connect to default device {default_ip}")
+        return
+
+    # Select the device
+    try:
+        logger.info(f"Selecting default device: {device_info.get('friendly_name', 'Unknown')} ({default_ip})")
+
+        # Create DLNA client and detect capabilities
+        client = _create_dlna_client_from_device(device_info)
+        capabilities = client.detect_capabilities()
+
+        # Save device with capabilities
+        device_info['capabilities'] = capabilities
+        device_manager.select_device(device_info)
+
+        # Update global DLNA client
+        dlna_client = client
+
+        logger.info(f"Successfully auto-selected default device: {device_info.get('friendly_name', 'Unknown')}")
+    except Exception as e:
+        logger.error(f"Failed to auto-select default device: {e}", exc_info=True)
+
+
 def _background_device_scan():
     """Background thread to scan for devices on startup."""
     global device_manager
@@ -374,45 +430,8 @@ def _background_device_scan():
         else:
             logger.warning("Background scan complete. No devices found - this may indicate network issues")
 
-        # Auto-select default device if configured
-        if config and config.default_device_ip:
-            default_ip = config.default_device_ip
-            logger.info(f"Default device IP configured: {default_ip}")
-
-            # Check if device is in the discovered list
-            default_device = None
-            for dev in devices:
-                if dev.get('ip') == default_ip:
-                    default_device = dev
-                    break
-
-            if default_device:
-                # Check if device is already selected (from previous session)
-                current = device_manager.get_current_device()
-                if current and current.get('ip') == default_ip:
-                    logger.info(f"Default device already selected: {default_device.get('friendly_name', 'Unknown')}")
-                else:
-                    # Auto-select the device
-                    try:
-                        logger.info(f"Auto-selecting default device: {default_device.get('friendly_name', 'Unknown')}")
-
-                        # Create DLNA client and detect capabilities
-                        client = _create_dlna_client_from_device(default_device)
-                        capabilities = client.detect_capabilities()
-
-                        # Save device with capabilities
-                        default_device['capabilities'] = capabilities
-                        device_manager.select_device(default_device)
-
-                        # Update global DLNA client
-                        global dlna_client
-                        dlna_client = client
-
-                        logger.info(f"Successfully auto-selected default device: {default_device.get('friendly_name', 'Unknown')}")
-                    except Exception as select_error:
-                        logger.error(f"Failed to auto-select default device: {select_error}", exc_info=True)
-            else:
-                logger.warning(f"Default device IP {default_ip} not found in scan results")
+        # Try auto-select default device after scan completes
+        _try_auto_select_default_device()
 
     except Exception as e:
         logger.error(f"Background device scan failed: {e}", exc_info=True)
@@ -450,7 +469,10 @@ def initialize():
         logger.info(f"Restoring previously selected device: {saved_device.get('friendly_name', 'Unknown')}")
         dlna_client = _create_dlna_client_from_device(saved_device)
     else:
-        logger.info("No device selected. Use /devices/select to choose a device.")
+        logger.info("No device selected")
+
+    # Try to auto-select default device if configured (immediate, before background scan)
+    _try_auto_select_default_device()
 
     # Start background device scan
     import threading
