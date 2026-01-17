@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 import re
 import socket
 import subprocess
@@ -385,6 +386,25 @@ def _try_auto_select_default_device():
         logger.error(f"Failed to auto-select default device: {e}", exc_info=True)
 
 
+def _precache_default_stream():
+    """Pre-cache default stream format if configured."""
+    if not config or not config.default_stream_url:
+        return
+
+    stream_url = config.default_stream_url
+    logger.info(f"Pre-caching stream format for: {stream_url}")
+
+    try:
+        # This will cache the result for future /play calls
+        stream_format = _detect_stream_format(stream_url)
+        if stream_format:
+            logger.info(f"Successfully pre-cached stream format: {stream_format}")
+        else:
+            logger.warning("Could not detect stream format for pre-caching")
+    except Exception as e:
+        logger.error(f"Failed to pre-cache stream format: {e}")
+
+
 def _background_device_scan():
     """Background thread to scan for devices on startup."""
     global device_manager
@@ -460,8 +480,9 @@ def initialize():
     )
     logger.info(f"Stream format cache initialized (TTL: {config.stream_cache_ttl}s)")
 
-    # Initialize device manager
-    device_manager = DeviceManager()
+    # Initialize device manager with data directory
+    state_file = os.path.join(config.data_dir, 'state.json')
+    device_manager = DeviceManager(state_file=state_file)
 
     # Restore previously selected device if exists
     saved_device = device_manager.get_current_device()
@@ -474,16 +495,28 @@ def initialize():
     # Try to auto-select default device if configured (immediate, before background scan)
     _try_auto_select_default_device()
 
-    # Start background device scan
+    # Start background tasks (parallel execution for faster startup)
     import threading
+
+    # Background device scan with longer timeout
     scan_thread = threading.Thread(target=_background_device_scan, daemon=True)
     scan_thread.start()
+
+    # Pre-cache default stream format (parallel with device scan)
+    if config.default_stream_url:
+        precache_thread = threading.Thread(target=_precache_default_stream, daemon=True)
+        precache_thread.start()
+        logger.info("Started background stream format pre-caching")
 
 
 @app.route('/', methods=['GET'])
 def index():
     """Development console UI."""
-    return render_template('dev.html', default_stream_url=config.default_stream_url)
+    return render_template(
+        'dev.html',
+        default_stream_url=config.default_stream_url,
+        default_device_ip=config.default_device_ip
+    )
 
 
 @app.route('/health', methods=['GET'])
