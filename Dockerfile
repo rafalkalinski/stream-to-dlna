@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 FROM python:3.14-slim
 
 # Build arguments for versioning
@@ -8,18 +9,20 @@ ARG BUILD_DATE=unknown
 ENV BUILD_HASH=${BUILD_HASH}
 ENV BUILD_DATE=${BUILD_DATE}
 
-# Install FFmpeg and clean up in single layer to reduce image size
-RUN apt-get update && \
+# Install FFmpeg with BuildKit cache mount for faster rebuilds
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && \
     apt-get install -y --no-install-recommends ffmpeg && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    rm -rf /tmp/* /var/tmp/*
 
 # Set working directory
 WORKDIR /app
 
-# Copy requirements and install Python dependencies
+# Copy requirements and install Python dependencies with pip cache
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --no-compile -r requirements.txt
 
 # Copy application code
 COPY app/ ./app/

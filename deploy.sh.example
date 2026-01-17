@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Enable Docker BuildKit for faster builds and advanced features
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+
 # Update the local repository with changes from the remote server
 echo "Running git pull..."
 git pull
@@ -14,10 +18,12 @@ if [ $? -eq 0 ]; then
 
     echo "  BUILD_HASH: ${BUILD_HASH}"
     echo "  BUILD_DATE: ${BUILD_DATE}"
+    echo "  BuildKit: enabled (faster builds with layer caching)"
     echo ""
 
     # Build the docker images with build arguments
-    sudo docker compose build \
+    # BuildKit will cache apt and pip downloads for much faster rebuilds
+    sudo -E docker compose build \
         --build-arg BUILD_HASH="${BUILD_HASH}" \
         --build-arg BUILD_DATE="${BUILD_DATE}"
 
