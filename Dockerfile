@@ -31,4 +31,6 @@ COPY config.example.yaml ./config.yaml
 EXPOSE 5000 8080
 
 # Run the application with gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--threads", "2", "--timeout", "120", "app.main:app"]
+# CRITICAL: --workers MUST be 1 to prevent race conditions with state file
+# See config.example.yaml performance.gunicorn_workers for details
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "4", "--timeout", "120", "app.main:app"]

@@ -179,16 +179,14 @@ class SSDPDiscovery:
             for path in common_paths:
                 location = f"http://{host}:{port}{path}"
                 try:
-                    response = requests.get(location, timeout=timeout)
+                    response = http_client.get(location, timeout=timeout)
                     if response.status_code == 200 and 'xml' in response.headers.get('Content-Type', '').lower():
                         logger.info(f"Found device at {location}")
                         device_info = SSDPDiscovery._fetch_device_info(location)
                         if device_info:
                             return device_info
-                except requests.exceptions.Timeout:
-                    logger.debug(f"Timeout connecting to {location}")
-                    continue
-                except Exception:
+                except Exception as e:
+                    logger.debug(f"Failed to connect to {location}: {e}")
                     continue
 
         logger.warning(f"Could not connect to device at {host}")

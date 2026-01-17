@@ -230,7 +230,7 @@ def _detect_format_with_ffprobe(stream_url: str) -> str | None:
             cmd,
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=15
         )
 
         if result.returncode != 0:
