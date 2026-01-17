@@ -41,6 +41,11 @@ class Config:
         return self.get('radio.default_url', '')
 
     @property
+    def default_device_ip(self) -> str:
+        """Get default DLNA device IP address."""
+        return self.get('dlna.default_device_ip', '')
+
+    @property
     def server_host(self) -> str:
         """Get Flask server host."""
         return self.get('server.host', '0.0.0.0')

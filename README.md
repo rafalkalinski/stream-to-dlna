@@ -8,15 +8,18 @@
 
 Stream internet radio to DLNA devices with automatic format detection and smart transcoding.
 
-**Latest:** v0.3 adds major security, performance, and reliability improvements. See [CHANGELOG](CHANGELOG.md) for details.
+**Latest:** v0.4 adds user experience improvements and enhanced codec detection. See [CHANGELOG](CHANGELOG.md) for details.
 
 ## Features
 
 ### Core Functionality
 - **Interactive Web Console** at `http://localhost:5000` - GUI for device management and API testing
+  - Enter key support for all input fields
 - Network discovery with SSDP/UPnP
 - Smart transcoding: passthrough when device supports native format, FFmpeg when transcoding needed
+  - Enhanced AAC codec detection (audio/aac, audio/aacp, audio/adts, audio/m4a)
 - Multi-device support with persistent device selection
+  - **Auto-select default device**: Configure `dlna.default_device_ip` for automatic selection on startup
 - Device cache with configurable TTL (default 2 hours)
 - Background device scan on startup
 - Direct device connection fallback when SSDP fails
@@ -99,6 +102,10 @@ Edit `config.yaml`:
 ```yaml
 radio:
   default_url: "https://stream.radio357.pl"
+
+# Optional: Auto-select DLNA device on startup
+dlna:
+  default_device_ip: "192.168.0.179"
 
 server:
   host: "0.0.0.0"

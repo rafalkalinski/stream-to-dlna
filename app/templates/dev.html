@@ -478,6 +478,42 @@
             makeRequest('GET', '/health', button);
         }
 
+        // Enter key handling for input fields
+        document.addEventListener('DOMContentLoaded', function() {
+            // Select device IP input
+            const selectIpInput = document.getElementById('select_ip');
+            if (selectIpInput) {
+                selectIpInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        selectDevice();
+                    }
+                });
+            }
+
+            // Play URL input
+            const playUrlInput = document.getElementById('play_url');
+            if (playUrlInput) {
+                playUrlInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        play();
+                    }
+                });
+            }
+
+            // Scan timeout input
+            const scanTimeoutInput = document.getElementById('scan_timeout');
+            if (scanTimeoutInput) {
+                scanTimeoutInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        getDevices();
+                    }
+                });
+            }
+        });
+
         // Resizable splitter
         (function() {
             const splitter = document.getElementById('splitter');
