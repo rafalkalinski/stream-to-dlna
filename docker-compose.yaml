@@ -16,6 +16,7 @@ services:
       - ./data:/data
     environment:
       - TZ=Europe/Warsaw
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}  # Set to DEBUG for detailed logs
     logging:
       driver: "json-file"
       options:

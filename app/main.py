@@ -22,8 +22,11 @@ from app.stream_cache import StreamFormatCache
 from app.streamer import AudioStreamer, PassthroughStreamer
 
 # Configure logging
+log_level_name = os.environ.get('LOG_LEVEL', 'INFO').upper()
+log_level = getattr(logging, log_level_name, logging.INFO)
+
 logging.basicConfig(
-    level=logging.INFO,
+    level=log_level,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(sys.stdout)
@@ -31,6 +34,7 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+logger.info(f"Log level set to {log_level_name}")
 
 # Suppress werkzeug logging for /health endpoint
 werkzeug_logger = logging.getLogger('werkzeug')
