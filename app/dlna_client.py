@@ -22,8 +22,14 @@ class DLNAClient:
         self.instance_id = "0"
         self.capabilities: dict[str, Any] | None = None
 
-    def _send_soap_request(self, action: str, arguments: dict = None) -> str | None:
-        """Send SOAP request to DLNA device."""
+    def _send_soap_request(self, action: str, arguments: dict = None, timeout: int = 10) -> str | None:
+        """Send SOAP request to DLNA device.
+
+        Args:
+            action: SOAP action name
+            arguments: Action arguments
+            timeout: Request timeout in seconds (default: 10, SetAVTransportURI uses 30)
+        """
         arguments = arguments or {}
 
         # Build SOAP envelope
@@ -52,7 +58,7 @@ class DLNAClient:
                 self.control_url,
                 data=envelope.encode('utf-8'),
                 headers=headers,
-                timeout=10
+                timeout=timeout
             )
 
             if response.status_code == 200:
@@ -67,7 +73,11 @@ class DLNAClient:
             return None
 
     def set_av_transport_uri(self, uri: str, metadata: str = "") -> bool:
-        """Set the URI of the media to play."""
+        """Set the URI of the media to play.
+
+        Note: Uses 30s timeout as some devices (e.g., Panasonic PMX9) need time
+        to process metadata and prepare for streaming.
+        """
         logger.info(f"Setting AV Transport URI to {uri}")
 
         # Escape XML entities in URI
@@ -78,7 +88,8 @@ class DLNAClient:
             'CurrentURIMetaData': metadata
         }
 
-        response = self._send_soap_request('SetAVTransportURI', arguments)
+        # Use 30s timeout for SetAVTransportURI (some devices are slow)
+        response = self._send_soap_request('SetAVTransportURI', arguments, timeout=30)
         return response is not None
 
     def play(self, speed: str = "1") -> bool:
