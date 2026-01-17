@@ -737,27 +737,6 @@ def play():
         if device_info.get('capabilities'):
             active_client.capabilities = device_info.get('capabilities')
 
-            # Re-detect capabilities if raw_protocol_info is missing (old format)
-            if not active_client.capabilities.get('raw_protocol_info'):
-                logger.warning("Device capabilities missing raw_protocol_info - re-detecting capabilities")
-                try:
-                    capabilities = active_client.detect_capabilities()
-                    device_info['capabilities'] = capabilities
-                    device_manager.select_device(device_info)  # Update state with new capabilities
-                    logger.info("Capabilities re-detected and saved")
-                except Exception as e:
-                    logger.error(f"Failed to re-detect capabilities: {e}")
-        else:
-            # No capabilities at all - detect them
-            logger.warning("No device capabilities found - detecting now")
-            try:
-                capabilities = active_client.detect_capabilities()
-                device_info['capabilities'] = capabilities
-                device_manager.select_device(device_info)  # Update state with capabilities
-                logger.info("Capabilities detected and saved")
-            except Exception as e:
-                logger.error(f"Failed to detect capabilities: {e}")
-
         # Stop existing stream if running
         if streamer and streamer.is_running():
             logger.info("Stopping existing stream")
