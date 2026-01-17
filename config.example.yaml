@@ -5,6 +5,13 @@ radio:
   # Default radio stream URL (can be overridden via API)
   default_url: "https://stream.radio357.pl"
 
+# DLNA device settings
+dlna:
+  # Default DLNA device IP address (optional)
+  # If set, the device will be automatically selected on startup
+  # Use this to simplify Home Assistant integrations or automation
+  # default_device_ip: "192.168.0.179"
+
 # API server settings
 server:
   # Host to bind Flask API server (0.0.0.0 for all interfaces)

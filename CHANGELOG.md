@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.4] - 2026-01-17
+
+User experience improvements and enhanced codec detection.
+
+### Added
+- **Default Device IP Configuration**: New `dlna.default_device_ip` config option for automatic device selection on startup
+- **GUI Enter Key Support**: All input fields now respond to Enter key for improved usability
+- **Enhanced AAC Detection**: Improved codec detection for AAC streams (supports audio/aac, audio/aacp, audio/adts, audio/m4a)
+- **Stream Detection Logging**: Enhanced logging for troubleshooting transcoding decisions
+
+### Changed
+- **Auto-Select Logic**: Devices configured with `default_device_ip` are automatically selected after discovery scan
+- **Codec Detection**: Expanded AAC MIME type recognition for better passthrough mode detection
+- **Logging Verbosity**: Added detailed logs for stream redirects, Content-Type detection, and transcoding decisions
+
+### Fixed
+- **AAC Passthrough**: Streams with AAC codec now correctly use passthrough mode when device supports it
+- **Stream Redirect Handling**: Better logging for streams with multiple redirects
+
 ## [v0.3] - 2026-01-16
 
 Major security, performance, and reliability improvements with principal developer code review.

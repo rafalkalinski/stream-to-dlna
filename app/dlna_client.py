@@ -309,10 +309,16 @@ class DLNAClient:
 
         mime_lower = mime_type.lower()
 
+        # MP3 detection
         if 'mpeg' in mime_lower or 'mp3' in mime_lower:
             return self.capabilities.get('supports_mp3', False)
-        elif 'aac' in mime_lower or 'mp4' in mime_lower:
+
+        # AAC detection (multiple formats)
+        # Common AAC MIME types: audio/aac, audio/aacp, audio/mp4, audio/vnd.dlna.adts, audio/x-hx-aac-adts
+        elif any(fmt in mime_lower for fmt in ['aac', 'mp4', 'adts', 'm4a']):
             return self.capabilities.get('supports_aac', False)
+
+        # Other formats
         elif 'flac' in mime_lower:
             return self.capabilities.get('supports_flac', False)
         elif 'wav' in mime_lower:

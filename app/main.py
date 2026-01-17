@@ -199,14 +199,25 @@ def _detect_stream_format(stream_url: str) -> str | None:
     """
     try:
         timeout = config.stream_detection_timeout if config else 5
+        logger.info(f"Detecting stream format for: {stream_url}")
         response = http_client.head(stream_url, timeout=timeout, allow_redirects=True)
+
+        # Log redirect information
+        if response.history:
+            logger.info(f"Stream redirected {len(response.history)} time(s)")
+            for i, resp in enumerate(response.history):
+                logger.debug(f"  Redirect {i+1}: {resp.status_code} -> {resp.headers.get('Location', 'unknown')}")
+            logger.info(f"Final URL: {response.url}")
+
         content_type = response.headers.get('Content-Type', '')
         if content_type:
             # Extract just the MIME type (before any semicolon)
             # Add length limit for security
             mime_type = content_type.split(';')[0].strip()[:100]
-            logger.info(f"Detected stream format: {mime_type}")
+            logger.info(f"Detected stream Content-Type: {mime_type}")
             return mime_type
+        else:
+            logger.warning("Stream did not return Content-Type header")
     except Exception as e:
         logger.warning(f"Could not detect stream format: {e}")
 
@@ -257,6 +268,46 @@ def _background_device_scan():
                 logger.info(f"  - {dev.get('friendly_name', 'Unknown')} ({dev.get('ip')})")
         else:
             logger.warning("Background scan complete. No devices found - this may indicate network issues")
+
+        # Auto-select default device if configured
+        if config and config.default_device_ip:
+            default_ip = config.default_device_ip
+            logger.info(f"Default device IP configured: {default_ip}")
+
+            # Check if device is in the discovered list
+            default_device = None
+            for dev in devices:
+                if dev.get('ip') == default_ip:
+                    default_device = dev
+                    break
+
+            if default_device:
+                # Check if device is already selected (from previous session)
+                current = device_manager.get_current_device()
+                if current and current.get('ip') == default_ip:
+                    logger.info(f"Default device already selected: {default_device.get('friendly_name', 'Unknown')}")
+                else:
+                    # Auto-select the device
+                    try:
+                        logger.info(f"Auto-selecting default device: {default_device.get('friendly_name', 'Unknown')}")
+
+                        # Create DLNA client and detect capabilities
+                        client = _create_dlna_client_from_device(default_device)
+                        capabilities = client.detect_capabilities()
+
+                        # Save device with capabilities
+                        default_device['capabilities'] = capabilities
+                        device_manager.select_device(default_device)
+
+                        # Update global DLNA client
+                        global dlna_client
+                        dlna_client = client
+
+                        logger.info(f"Successfully auto-selected default device: {default_device.get('friendly_name', 'Unknown')}")
+                    except Exception as select_error:
+                        logger.error(f"Failed to auto-select default device: {select_error}", exc_info=True)
+            else:
+                logger.warning(f"Default device IP {default_ip} not found in scan results")
 
     except Exception as e:
         logger.error(f"Background device scan failed: {e}", exc_info=True)
@@ -521,15 +572,23 @@ def play():
         playback_url = stream_url
 
         # Check if device can play the format natively
-        if stream_format and active_client.capabilities:
-            can_play_native = active_client.can_play_format(stream_format)
-            if can_play_native:
-                logger.info(f"Device supports {stream_format} natively - using passthrough mode")
-                needs_transcoding = False
+        if stream_format:
+            logger.info(f"Stream format detected: {stream_format}")
+            if active_client.capabilities:
+                logger.info(f"Device capabilities available: MP3={active_client.capabilities.get('supports_mp3')}, "
+                           f"AAC={active_client.capabilities.get('supports_aac')}, "
+                           f"FLAC={active_client.capabilities.get('supports_flac')}")
+
+                can_play_native = active_client.can_play_format(stream_format)
+                if can_play_native:
+                    logger.info(f"✓ Device supports {stream_format} natively - using passthrough mode (no transcoding)")
+                    needs_transcoding = False
+                else:
+                    logger.warning(f"✗ Device does not support {stream_format} - transcoding to MP3 required")
             else:
-                logger.info(f"Device does not support {stream_format} - transcoding required")
+                logger.warning("Device capabilities not available - defaulting to transcoding")
         else:
-            logger.info("Could not detect format or capabilities - defaulting to transcoding")
+            logger.warning("Could not detect stream format - defaulting to transcoding for compatibility")
 
         # Create appropriate streamer
         if needs_transcoding:
