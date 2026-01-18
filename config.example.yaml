@@ -12,6 +12,12 @@ dlna:
   # Use this to simplify Home Assistant integrations or automation
   # default_device_ip: "192.168.0.179"
 
+  # Disable DIDL-Lite metadata (for problematic devices)
+  # Some devices (e.g., Panasonic PMX9) timeout when parsing DIDL-Lite metadata
+  # Set to true if SetAVTransportURI times out but works with ?no_metadata=true
+  # Default: false (metadata enabled)
+  # disable_metadata: true
+
 # API server settings
 server:
   # Host to bind Flask API server (0.0.0.0 for all interfaces)
