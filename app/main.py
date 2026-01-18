@@ -759,9 +759,17 @@ def play():
                            f"FLAC={active_client.capabilities.get('supports_flac')}")
 
                 can_play_native = active_client.can_play_format(stream_format)
-                if can_play_native:
+
+                # Check if stream URL is HTTPS - many DLNA devices don't support HTTPS
+                is_https = stream_url.lower().startswith('https://')
+
+                if can_play_native and not is_https:
                     logger.info(f"Device supports {stream_format} natively - using passthrough mode (no transcoding)")
                     needs_transcoding = False
+                elif can_play_native and is_https:
+                    logger.warning(f"Device supports {stream_format} but stream is HTTPS - transcoding to HTTP for compatibility")
+                    logger.warning("Many DLNA devices cannot handle HTTPS streams (no SSL/TLS support)")
+                    needs_transcoding = True
                 else:
                     logger.warning(f"Device does not support {stream_format} - transcoding to MP3 required")
             else:
