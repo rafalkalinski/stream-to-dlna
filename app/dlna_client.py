@@ -316,7 +316,8 @@ class DLNAClient:
         logger.debug(f"Generated DIDL metadata:\n{metadata}")
         return metadata
 
-    def play_url(self, url: str, title: str = "Audio Stream", mime_type: str = "audio/mpeg") -> bool:
+    def play_url(self, url: str, title: str = "Audio Stream", mime_type: str = "audio/mpeg",
+                 use_metadata: bool = True) -> bool:
         """
         Set URI and start playback in one call with proper DIDL-Lite metadata.
 
@@ -324,14 +325,18 @@ class DLNAClient:
             url: Stream URL to play
             title: Stream title for metadata
             mime_type: MIME type of the stream
+            use_metadata: If False, send empty metadata (for problematic devices)
 
         Returns:
             True if successful, False otherwise
         """
-        # Build DIDL-Lite metadata
-        metadata = self._build_didl_metadata(url, title, mime_type)
-
-        logger.debug(f"Setting URI with metadata: {metadata[:200]}...")
+        # Build DIDL-Lite metadata (or empty if disabled)
+        if use_metadata:
+            metadata = self._build_didl_metadata(url, title, mime_type)
+            logger.debug(f"Setting URI with metadata: {metadata[:200]}...")
+        else:
+            metadata = ""
+            logger.warning("DIDL-Lite metadata disabled - sending empty metadata")
 
         if not self.set_av_transport_uri(url, metadata):
             return False

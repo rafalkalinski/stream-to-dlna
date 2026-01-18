@@ -816,11 +816,15 @@ def play():
         else:
             metadata_mime_type = stream_format or "audio/mpeg"
 
+        # Check if metadata should be disabled (debug parameter)
+        no_metadata = request.args.get('no_metadata', '').lower() == 'true'
+
         # Send to DLNA device with proper metadata
         success = active_client.play_url(
             playback_url,
             title=stream_title,
-            mime_type=metadata_mime_type
+            mime_type=metadata_mime_type,
+            use_metadata=not no_metadata
         )
 
         if success:
