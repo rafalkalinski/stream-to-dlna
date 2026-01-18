@@ -773,6 +773,15 @@ def play():
 
         # Create appropriate streamer
         if needs_transcoding:
+            # Callback to stop DLNA device when FFmpeg crashes
+            def on_ffmpeg_crash():
+                if dlna_client:
+                    logger.warning("FFmpeg crashed - stopping DLNA device")
+                    try:
+                        dlna_client.stop()
+                    except Exception as e:
+                        logger.debug(f"Error stopping DLNA after crash: {e}")
+
             # Use FFmpeg transcoding with configured parameters
             streamer = AudioStreamer(
                 stream_url=stream_url,
@@ -780,7 +789,8 @@ def play():
                 bitrate=config.mp3_bitrate,
                 chunk_size=config.ffmpeg_chunk_size,
                 max_stderr_lines=config.ffmpeg_max_stderr_lines,
-                protocol_whitelist=config.ffmpeg_protocol_whitelist
+                protocol_whitelist=config.ffmpeg_protocol_whitelist,
+                on_crash_callback=on_ffmpeg_crash
             )
             streamer.start()
 
@@ -888,11 +898,37 @@ def status():
                 'ip': current_device.get('ip')
             }
 
-        return jsonify({
+        # Calculate effective state based on both sources
+        effective_state = 'idle'
+        state_details = None
+        dlna_state = dlna_info.get('state') if dlna_info else None
+
+        if is_streaming and dlna_state == 'PLAYING':
+            effective_state = 'playing'
+        elif is_streaming and dlna_state == 'TRANSITIONING':
+            effective_state = 'starting'
+        elif is_streaming and dlna_state in ('STOPPED', 'NO_MEDIA_PRESENT'):
+            effective_state = 'error'
+            state_details = 'Stream running but device stopped'
+        elif is_streaming and dlna_state is None:
+            effective_state = 'playing'
+            state_details = 'Device not responding'
+        elif not is_streaming and dlna_state in ('PLAYING', 'TRANSITIONING'):
+            effective_state = 'error'
+            state_details = f'Stream ended but device stuck in {dlna_state}'
+        elif not is_streaming and dlna_state in ('STOPPED', 'NO_MEDIA_PRESENT', None):
+            effective_state = 'idle'
+
+        response = {
             'streaming': is_streaming,
             'dlna': dlna_info,
-            'current_device': device_info
-        }), 200
+            'current_device': device_info,
+            'effective_state': effective_state
+        }
+        if state_details:
+            response['state_details'] = state_details
+
+        return jsonify(response), 200
 
     except Exception as e:
         logger.error(f"Error getting status: {e}", exc_info=True)

@@ -87,13 +87,15 @@ class AudioStreamer:
 
     def __init__(self, stream_url: str, port: int, bitrate: str = "128k",
                  chunk_size: int = 8192, max_stderr_lines: int = 1000,
-                 protocol_whitelist: str = "http,https,tcp,tls"):
+                 protocol_whitelist: str = "http,https,tcp,tls",
+                 on_crash_callback: callable = None):
         self.stream_url = stream_url
         self.port = port
         self.bitrate = bitrate
         self.chunk_size = chunk_size
         self.max_stderr_lines = max_stderr_lines
         self.protocol_whitelist = protocol_whitelist
+        self.on_crash_callback = on_crash_callback
         self.ffmpeg_process: subprocess.Popen | None = None
         self.http_server: HTTPServer | None = None
         self.server_thread: threading.Thread | None = None
@@ -284,6 +286,13 @@ class AudioStreamer:
                     logger.debug(f"Error during auto-cleanup: {e}")
                 finally:
                     self.http_server = None
+
+            # Notify about crash via callback
+            if self.on_crash_callback:
+                try:
+                    self.on_crash_callback()
+                except Exception as e:
+                    logger.debug(f"Error in crash callback: {e}")
 
         return False
 
