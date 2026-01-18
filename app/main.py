@@ -811,34 +811,8 @@ def play():
             streamer.start()
             playback_url = stream_url
 
-        # Extract title from URL or use default
-        from urllib.parse import urlparse
-        parsed_url = urlparse(stream_url)
-        stream_title = parsed_url.hostname or "Radio Stream"
-
-        # Determine MIME type for metadata
-        # If transcoding, always use audio/mpeg (MP3)
-        # If passthrough, use detected format
-        if needs_transcoding:
-            metadata_mime_type = "audio/mpeg"
-        else:
-            metadata_mime_type = stream_format or "audio/mpeg"
-
-        # Check if metadata should be disabled
-        # Priority: URL parameter > config setting
-        no_metadata_param = request.args.get('no_metadata', '').lower() == 'true'
-        use_metadata = not (no_metadata_param or config.disable_metadata)
-
-        if not use_metadata:
-            logger.info("DIDL-Lite metadata disabled (config or URL parameter)")
-
         # Send to DLNA device
-        success = active_client.play_url(
-            playback_url,
-            title=stream_title,
-            mime_type=metadata_mime_type,
-            use_metadata=use_metadata
-        )
+        success = active_client.play_url(playback_url)
 
         if success:
             return jsonify({
@@ -928,6 +902,33 @@ def status():
 
     except Exception as e:
         logger.error(f"Error getting status: {e}", exc_info=True)
+        return jsonify({
+            'error': str(e)
+        }), 500
+
+
+@app.route('/streams/cached', methods=['GET'])
+def streams_cached():
+    """Get cached stream formats for GUI tags."""
+    try:
+        if not stream_cache:
+            return jsonify({'streams': [], 'count': 0}), 200
+
+        streams = []
+        for key, entry in stream_cache.cache.items():
+            streams.append({
+                'url': entry.get('url'),
+                'mime_type': entry.get('mime_type'),
+                'detection_method': entry.get('detection_method')
+            })
+
+        return jsonify({
+            'streams': streams,
+            'count': len(streams)
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error getting cached streams: {e}", exc_info=True)
         return jsonify({
             'error': str(e)
         }), 500
