@@ -10,27 +10,17 @@ git pull
 
 # Check if the previous command was successful
 if [ $? -eq 0 ]; then
-    echo "Git pull successful. Building Docker image with version info..."
-
-    # Get git commit hash and build date
-    BUILD_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "dev")
-    BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-
-    echo "  BUILD_HASH: ${BUILD_HASH}"
-    echo "  BUILD_DATE: ${BUILD_DATE}"
-    echo "  BuildKit: enabled (faster builds with layer caching)"
+    echo "Git pull successful. Building Docker image..."
+    echo "BuildKit: enabled (faster builds with layer caching)"
     echo ""
 
-    # Build the docker images with build arguments
+    # Build the docker images
     # BuildKit will cache apt and pip downloads for much faster rebuilds
-    sudo docker compose build \
-        --build-arg BUILD_HASH="${BUILD_HASH}" \
-        --build-arg BUILD_DATE="${BUILD_DATE}"
+    sudo docker compose build
 
     if [ $? -eq 0 ]; then
         echo ""
         echo "Build successful!"
-        echo "Image built with: ${BUILD_HASH} @ ${BUILD_DATE}"
     else
         echo "Docker build failed!"
         exit 1
