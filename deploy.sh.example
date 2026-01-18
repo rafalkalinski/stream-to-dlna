@@ -1,0 +1,43 @@
+#!/bin/bash
+
+# Enable Docker BuildKit for faster builds and advanced features
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+
+# Update the local repository with changes from the remote server
+echo "Running git pull..."
+git pull
+
+# Check if the previous command was successful
+if [ $? -eq 0 ]; then
+    echo "Git pull successful. Building Docker image with version info..."
+
+    # Get git commit hash and build date
+    BUILD_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "dev")
+    BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+    echo "  BUILD_HASH: ${BUILD_HASH}"
+    echo "  BUILD_DATE: ${BUILD_DATE}"
+    echo "  BuildKit: enabled (faster builds with layer caching)"
+    echo ""
+
+    # Build the docker images with build arguments
+    # BuildKit will cache apt and pip downloads for much faster rebuilds
+    sudo docker compose build \
+        --build-arg BUILD_HASH="${BUILD_HASH}" \
+        --build-arg BUILD_DATE="${BUILD_DATE}"
+
+    if [ $? -eq 0 ]; then
+        echo ""
+        echo "Build successful!"
+        echo "Image built with: ${BUILD_HASH} @ ${BUILD_DATE}"
+    else
+        echo "Docker build failed!"
+        exit 1
+    fi
+else
+    echo "Git pull failed. Aborting build."
+    exit 1
+fi
+
+echo "Process completed."

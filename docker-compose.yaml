@@ -2,34 +2,20 @@ version: '3.8'
 
 services:
   stream-to-dlna:
-    build: .
+    build:
+      context: .
     image: stream-to-dlna:latest
     container_name: stream-to-dlna
     restart: unless-stopped
     network_mode: host
     volumes:
       - ./config.yaml:/app/config.yaml:ro
+      - ./data:/data
     environment:
       - TZ=Europe/Warsaw
+      - LOG_LEVEL=DEBUG
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
-
-# For SSDP discovery to work in Docker bridge networks, you need to use
-# dual-network setup with macvlan. Example configuration:
-#
-# services:
-#   stream-to-dlna:
-#     networks:
-#       your-macvlan-network:
-#         ipv4_address: 192.168.x.x  # Choose free IP in your LAN
-#       your-npm-bridge:
-#         ipv4_address: 172.x.x.x    # Choose free IP in bridge
-#
-# networks:
-#   your-macvlan-network:
-#     external: true
-#   your-npm-bridge:
-#     external: true
