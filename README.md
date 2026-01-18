@@ -68,11 +68,9 @@ docker compose up -d
 
 The `deploy.sh` script automatically:
 - Pulls latest changes from git
-- Captures current git commit hash and build timestamp
 - Builds Docker image with BuildKit (faster builds with layer caching)
-- Shows version info in GUI: `v0.4.0 (3c90d1a @ 2026-01-17T11:45)`
 
-**Performance:** First build ~2 minutes, rebuilds ~10-20 seconds (thanks to BuildKit cache)
+**Performance:** First build ~90 seconds, rebuilds ~10-20 seconds (thanks to BuildKit cache and static FFmpeg binary)
 
 ### Logging
 
@@ -280,6 +278,12 @@ Selects device by IP. Uses cache first, falls back to scan, then attempts direct
 ```bash
 GET /devices/current
 ```
+
+**Get cached streams**
+```bash
+GET /streams/cached
+```
+Returns list of cached stream formats (used by GUI tags).
 
 ### Playback Control
 
