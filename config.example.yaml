@@ -5,6 +5,20 @@ radio:
   # Default radio stream URL (can be overridden via API)
   default_url: "https://stream.radio357.pl"
 
+# DLNA device settings
+dlna:
+  # Default DLNA device IP address (optional)
+  # If set, the device will be automatically selected on startup
+  # Use this to simplify Home Assistant integrations or automation
+  # default_device_ip: "192.168.0.179"
+
+  # Disable DIDL-Lite metadata (for problematic devices)
+  # Many devices (e.g., Panasonic PMX9) timeout when parsing DIDL-Lite metadata
+  # Most devices ignore metadata anyway, so it's safe to disable by default
+  # Set to false if you want to enable metadata (not recommended)
+  # Default: true (metadata disabled for compatibility)
+  disable_metadata: true
+
 # API server settings
 server:
   # Host to bind Flask API server (0.0.0.0 for all interfaces)
@@ -93,3 +107,15 @@ ffmpeg:
   # Protocol whitelist - SECURITY: restricts FFmpeg to safe protocols
   # Do not add 'file' protocol unless you understand security implications
   protocol_whitelist: "http,https,tcp,tls"
+
+# Storage settings
+storage:
+  # Data directory for persistent storage (cache, state)
+  # Docker: Mount this as volume in docker-compose.yml
+  # Local: Use relative path like "./data" or absolute path
+  data_dir: "/data"
+
+  # Stream format cache TTL in seconds
+  # Cache stores detected stream formats (Content-Type, ffprobe results)
+  # Default: 86400 (24 hours)
+  stream_cache_ttl: 86400

@@ -1,24 +1,32 @@
 """Main Flask application for DLNA Radio Streamer."""
 
+import json
 import logging
+import os
 import re
 import socket
+import subprocess
 import sys
 from urllib.parse import urlparse
 
 from flask import Flask, jsonify, render_template, request
 
+from app import __version__
 from app.config import Config
 from app.device_manager import DeviceManager
 from app.discovery import SSDPDiscovery
 from app.dlna_client import DLNAClient
 from app.http_client import http_client
 from app.security import init_rate_limiter, require_api_key
+from app.stream_cache import StreamFormatCache
 from app.streamer import AudioStreamer, PassthroughStreamer
 
 # Configure logging
+log_level_name = os.environ.get('LOG_LEVEL', 'INFO').upper()
+log_level = getattr(logging, log_level_name, logging.INFO)
+
 logging.basicConfig(
-    level=logging.INFO,
+    level=log_level,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(sys.stdout)
@@ -26,6 +34,7 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+logger.info(f"Log level set to {log_level_name}")
 
 # Suppress werkzeug logging for /health endpoint
 werkzeug_logger = logging.getLogger('werkzeug')
@@ -68,7 +77,12 @@ config: Config | None = None
 streamer: AudioStreamer | PassthroughStreamer | None = None
 dlna_client: DLNAClient | None = None
 device_manager: DeviceManager | None = None
+stream_cache: StreamFormatCache | None = None
 rate_limiter = None  # Will be initialized after config is loaded
+
+# Build info from Docker environment variables
+BUILD_HASH = os.environ.get('BUILD_HASH', 'dev')
+BUILD_DATE = os.environ.get('BUILD_DATE', 'unknown')
 
 
 def get_local_ip() -> str:
@@ -190,27 +204,214 @@ def _create_dlna_client_from_device(device_info: dict) -> DLNAClient:
     )
 
 
-def _detect_stream_format(stream_url: str) -> str | None:
+def _detect_format_with_ffprobe(stream_url: str) -> str | None:
     """
-    Detect stream content type by making a HEAD request.
+    Detect stream format using ffprobe as fallback.
+
+    Args:
+        stream_url: URL of the stream
 
     Returns:
         MIME type string or None
     """
     try:
+        logger.info("Attempting format detection with ffprobe")
+
+        # Use ffprobe to analyze stream
+        # -analyzeduration and -probesize limit how much data is downloaded
+        cmd = [
+            'ffprobe',
+            '-v', 'quiet',
+            '-print_format', 'json',
+            '-show_format',
+            '-show_streams',
+            '-analyzeduration', '2000000',  # 2 seconds
+            '-probesize', '1000000',  # 1MB
+            stream_url
+        ]
+
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=20
+        )
+
+        if result.returncode != 0:
+            logger.warning(f"ffprobe failed: {result.stderr}")
+            return None
+
+        data = json.loads(result.stdout)
+
+        # Extract codec information
+        streams = data.get('streams', [])
+        if not streams:
+            logger.warning("ffprobe found no streams")
+            return None
+
+        # Get audio codec from first audio stream
+        audio_stream = next((s for s in streams if s.get('codec_type') == 'audio'), None)
+        if not audio_stream:
+            logger.warning("ffprobe found no audio streams")
+            return None
+
+        codec_name = audio_stream.get('codec_name', '').lower()
+        logger.info(f"ffprobe detected codec: {codec_name}")
+
+        # Map codec to MIME type
+        codec_to_mime = {
+            'aac': 'audio/aac',
+            'mp3': 'audio/mpeg',
+            'flac': 'audio/flac',
+            'vorbis': 'audio/ogg',
+            'opus': 'audio/ogg',
+            'pcm_s16le': 'audio/wav',
+            'pcm_s24le': 'audio/wav',
+        }
+
+        mime_type = codec_to_mime.get(codec_name)
+        if mime_type:
+            logger.info(f"ffprobe mapped codec '{codec_name}' to MIME type: {mime_type}")
+            return mime_type
+        else:
+            logger.warning(f"Unknown codec '{codec_name}', cannot map to MIME type")
+            return None
+
+    except subprocess.TimeoutExpired:
+        logger.warning("ffprobe timed out")
+        return None
+    except Exception as e:
+        logger.warning(f"ffprobe detection failed: {e}")
+        return None
+
+
+def _detect_stream_format(stream_url: str) -> str | None:
+    """
+    Detect stream content type using cache, HEAD request, and ffprobe fallback.
+
+    Returns:
+        MIME type string or None
+    """
+    # Check cache first
+    if stream_cache:
+        cached = stream_cache.get(stream_url)
+        if cached:
+            return cached.get('mime_type')
+
+    # Try HEAD request
+    try:
         timeout = config.stream_detection_timeout if config else 5
+        logger.info(f"Detecting stream format for: {stream_url}")
         response = http_client.head(stream_url, timeout=timeout, allow_redirects=True)
+
+        # Log redirect information
+        if response.history:
+            logger.info(f"Stream redirected {len(response.history)} time(s)")
+            for i, resp in enumerate(response.history):
+                logger.debug(f"  Redirect {i+1}: {resp.status_code} -> {resp.headers.get('Location', 'unknown')}")
+            logger.info(f"Final URL: {response.url}")
+
         content_type = response.headers.get('Content-Type', '')
         if content_type:
             # Extract just the MIME type (before any semicolon)
             # Add length limit for security
             mime_type = content_type.split(';')[0].strip()[:100]
-            logger.info(f"Detected stream format: {mime_type}")
-            return mime_type
-    except Exception as e:
-        logger.warning(f"Could not detect stream format: {e}")
+            logger.info(f"Detected stream Content-Type via HEAD: {mime_type}")
 
-    return None
+            # Cache the result
+            if stream_cache:
+                stream_cache.set(stream_url, mime_type, 'head')
+
+            return mime_type
+        else:
+            logger.warning("Stream did not return Content-Type header in HEAD response")
+
+    except Exception as e:
+        logger.warning(f"HEAD request failed: {e}")
+
+    # Fallback to ffprobe
+    logger.info("Falling back to ffprobe for format detection")
+    mime_type = _detect_format_with_ffprobe(stream_url)
+
+    if mime_type and stream_cache:
+        stream_cache.set(stream_url, mime_type, 'ffprobe')
+
+    return mime_type
+
+
+def _try_auto_select_default_device():
+    """
+    Try to auto-select default device if configured.
+
+    Called both on startup and after background scan.
+    """
+    global dlna_client
+
+    if not config or not config.default_device_ip:
+        return
+
+    default_ip = config.default_device_ip
+
+    # Check if already selected with correct IP
+    current = device_manager.get_current_device()
+    if current and current.get('ip') == default_ip:
+        logger.info(f"Default device already selected: {current.get('friendly_name', 'Unknown')} ({default_ip})")
+        return
+
+    logger.info(f"Auto-selecting default device: {default_ip}")
+
+    # Try to find device in cache
+    device_info = device_manager.find_device_in_cache(ip=default_ip)
+
+    # If not in cache, try direct connection
+    if not device_info:
+        logger.info(f"Default device {default_ip} not in cache, trying direct connection")
+        try:
+            device_info = SSDPDiscovery.try_direct_connection(default_ip)
+        except Exception as e:
+            logger.warning(f"Direct connection to {default_ip} failed: {e}")
+
+    if not device_info:
+        logger.warning(f"Could not connect to default device {default_ip}")
+        return
+
+    # Select the device
+    try:
+        logger.info(f"Selecting default device: {device_info.get('friendly_name', 'Unknown')} ({default_ip})")
+
+        # Create DLNA client and detect capabilities
+        client = _create_dlna_client_from_device(device_info)
+        capabilities = client.detect_capabilities()
+
+        # Save device with capabilities
+        device_info['capabilities'] = capabilities
+        device_manager.select_device(device_info)
+
+        # Update global DLNA client
+        dlna_client = client
+
+        logger.info(f"Successfully auto-selected default device: {device_info.get('friendly_name', 'Unknown')}")
+    except Exception as e:
+        logger.error(f"Failed to auto-select default device: {e}", exc_info=True)
+
+
+def _precache_default_stream():
+    """Pre-cache default stream format if configured."""
+    if not config or not config.default_stream_url:
+        return
+
+    stream_url = config.default_stream_url
+    logger.info(f"Pre-caching stream format for: {stream_url}")
+
+    try:
+        # This will cache the result for future /play calls
+        stream_format = _detect_stream_format(stream_url)
+        if stream_format:
+            logger.info(f"Successfully pre-cached stream format: {stream_format}")
+        else:
+            logger.warning("Could not detect stream format for pre-caching")
+    except Exception as e:
+        logger.error(f"Failed to pre-cache stream format: {e}")
 
 
 def _background_device_scan():
@@ -258,13 +459,16 @@ def _background_device_scan():
         else:
             logger.warning("Background scan complete. No devices found - this may indicate network issues")
 
+        # Try auto-select default device after scan completes
+        _try_auto_select_default_device()
+
     except Exception as e:
         logger.error(f"Background device scan failed: {e}", exc_info=True)
 
 
 def initialize():
     """Initialize application components."""
-    global config, dlna_client, device_manager, rate_limiter
+    global config, dlna_client, device_manager, stream_cache, rate_limiter
 
     config = Config()
     logger.info("Configuration loaded")
@@ -278,8 +482,16 @@ def initialize():
     # Initialize rate limiter if enabled
     rate_limiter = init_rate_limiter(app, config)
 
-    # Initialize device manager
-    device_manager = DeviceManager()
+    # Initialize stream format cache
+    stream_cache = StreamFormatCache(
+        data_dir=config.data_dir,
+        ttl=config.stream_cache_ttl
+    )
+    logger.info(f"Stream format cache initialized (TTL: {config.stream_cache_ttl}s)")
+
+    # Initialize device manager with data directory
+    state_file = os.path.join(config.data_dir, 'state.json')
+    device_manager = DeviceManager(state_file=state_file)
 
     # Restore previously selected device if exists
     saved_device = device_manager.get_current_device()
@@ -287,18 +499,36 @@ def initialize():
         logger.info(f"Restoring previously selected device: {saved_device.get('friendly_name', 'Unknown')}")
         dlna_client = _create_dlna_client_from_device(saved_device)
     else:
-        logger.info("No device selected. Use /devices/select to choose a device.")
+        logger.info("No device selected")
 
-    # Start background device scan
+    # Try to auto-select default device if configured (immediate, before background scan)
+    _try_auto_select_default_device()
+
+    # Start background tasks (parallel execution for faster startup)
     import threading
+
+    # Background device scan with longer timeout
     scan_thread = threading.Thread(target=_background_device_scan, daemon=True)
     scan_thread.start()
+
+    # Pre-cache default stream format (parallel with device scan)
+    if config.default_stream_url:
+        precache_thread = threading.Thread(target=_precache_default_stream, daemon=True)
+        precache_thread.start()
+        logger.info("Started background stream format pre-caching")
 
 
 @app.route('/', methods=['GET'])
 def index():
     """Development console UI."""
-    return render_template('dev.html', default_stream_url=config.default_stream_url)
+    return render_template(
+        'dev.html',
+        default_stream_url=config.default_stream_url,
+        default_device_ip=config.default_device_ip,
+        version=__version__,
+        build_hash=BUILD_HASH,
+        build_date=BUILD_DATE
+    )
 
 
 @app.route('/health', methods=['GET'])
@@ -521,15 +751,31 @@ def play():
         playback_url = stream_url
 
         # Check if device can play the format natively
-        if stream_format and active_client.capabilities:
-            can_play_native = active_client.can_play_format(stream_format)
-            if can_play_native:
-                logger.info(f"Device supports {stream_format} natively - using passthrough mode")
-                needs_transcoding = False
+        if stream_format:
+            logger.info(f"Stream format detected: {stream_format}")
+            if active_client.capabilities:
+                logger.info(f"Device capabilities available: MP3={active_client.capabilities.get('supports_mp3')}, "
+                           f"AAC={active_client.capabilities.get('supports_aac')}, "
+                           f"FLAC={active_client.capabilities.get('supports_flac')}")
+
+                can_play_native = active_client.can_play_format(stream_format)
+
+                # Check if stream URL is HTTPS - many DLNA devices don't support HTTPS
+                is_https = stream_url.lower().startswith('https://')
+
+                if can_play_native and not is_https:
+                    logger.info(f"Device supports {stream_format} natively - using passthrough mode (no transcoding)")
+                    needs_transcoding = False
+                elif can_play_native and is_https:
+                    logger.warning(f"Device supports {stream_format} but stream is HTTPS - transcoding to HTTP for compatibility")
+                    logger.warning("Many DLNA devices cannot handle HTTPS streams (no SSL/TLS support)")
+                    needs_transcoding = True
+                else:
+                    logger.warning(f"Device does not support {stream_format} - transcoding to MP3 required")
             else:
-                logger.info(f"Device does not support {stream_format} - transcoding required")
+                logger.warning("Device capabilities not available - defaulting to transcoding")
         else:
-            logger.info("Could not detect format or capabilities - defaulting to transcoding")
+            logger.warning("Could not detect stream format - defaulting to transcoding for compatibility")
 
         # Create appropriate streamer
         if needs_transcoding:
@@ -565,8 +811,34 @@ def play():
             streamer.start()
             playback_url = stream_url
 
+        # Extract title from URL or use default
+        from urllib.parse import urlparse
+        parsed_url = urlparse(stream_url)
+        stream_title = parsed_url.hostname or "Radio Stream"
+
+        # Determine MIME type for metadata
+        # If transcoding, always use audio/mpeg (MP3)
+        # If passthrough, use detected format
+        if needs_transcoding:
+            metadata_mime_type = "audio/mpeg"
+        else:
+            metadata_mime_type = stream_format or "audio/mpeg"
+
+        # Check if metadata should be disabled
+        # Priority: URL parameter > config setting
+        no_metadata_param = request.args.get('no_metadata', '').lower() == 'true'
+        use_metadata = not (no_metadata_param or config.disable_metadata)
+
+        if not use_metadata:
+            logger.info("DIDL-Lite metadata disabled (config or URL parameter)")
+
         # Send to DLNA device
-        success = active_client.play_url(playback_url)
+        success = active_client.play_url(
+            playback_url,
+            title=stream_title,
+            mime_type=metadata_mime_type,
+            use_metadata=use_metadata
+        )
 
         if success:
             return jsonify({

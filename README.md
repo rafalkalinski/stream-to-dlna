@@ -8,15 +8,20 @@
 
 Stream internet radio to DLNA devices with automatic format detection and smart transcoding.
 
-**Latest:** v0.3 adds major security, performance, and reliability improvements. See [CHANGELOG](CHANGELOG.md) for details.
+**Latest:** v0.4 adds user experience improvements and enhanced codec detection. See [CHANGELOG](CHANGELOG.md) for details.
 
 ## Features
 
 ### Core Functionality
 - **Interactive Web Console** at `http://localhost:5000` - GUI for device management and API testing
+  - Enter key support for all input fields
 - Network discovery with SSDP/UPnP
 - Smart transcoding: passthrough when device supports native format, FFmpeg when transcoding needed
+  - Enhanced AAC codec detection (audio/aac, audio/aacp, audio/adts, audio/m4a)
+  - FFprobe fallback for streams without Content-Type header
+  - Persistent cache for stream format detection (configurable TTL)
 - Multi-device support with persistent device selection
+  - **Auto-select default device**: Configure `dlna.default_device_ip` for automatic selection on startup
 - Device cache with configurable TTL (default 2 hours)
 - Background device scan on startup
 - Direct device connection fallback when SSDP fails
@@ -51,7 +56,31 @@ cd stream-to-dlna
 # Create your config from example
 cp config.example.yaml config.yaml
 # Edit config.yaml with your settings
-docker-compose up -d
+
+# Create deployment script from template
+cp deploy.sh.example deploy.sh
+chmod +x deploy.sh
+
+# Build and start
+./deploy.sh
+docker compose up -d
+```
+
+The `deploy.sh` script automatically:
+- Pulls latest changes from git
+- Captures current git commit hash and build timestamp
+- Builds Docker image with BuildKit (faster builds with layer caching)
+- Shows version info in GUI: `v0.4.0 (3c90d1a @ 2026-01-17T11:45)`
+
+**Performance:** First build ~2 minutes, rebuilds ~10-20 seconds (thanks to BuildKit cache)
+
+### Logging
+
+Edit `docker-compose.yaml` to control log verbosity:
+```yaml
+environment:
+  - LOG_LEVEL=INFO   # Production: INFO or WARNING
+  - LOG_LEVEL=DEBUG  # Development: DEBUG for detailed logs
 ```
 
 ### Development (Local)
@@ -100,6 +129,10 @@ Edit `config.yaml`:
 radio:
   default_url: "https://stream.radio357.pl"
 
+# Optional: Auto-select DLNA device on startup
+dlna:
+  default_device_ip: "192.168.0.179"
+
 server:
   host: "0.0.0.0"
   port: 5000
@@ -108,6 +141,11 @@ streaming:
   port: 8080
   mp3_bitrate: "128k"
   # public_url: "http://radio.yourdomain.local"
+
+# Persistent storage (optional, defaults shown)
+storage:
+  data_dir: "/data"          # Docker volume mount point
+  stream_cache_ttl: 86400    # 24 hours
 
 # Network timeouts (optional, defaults shown)
 timeouts:

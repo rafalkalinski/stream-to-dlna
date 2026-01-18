@@ -39,3 +39,18 @@ LICENSE
 # OS
 .DS_Store
 Thumbs.db
+
+# Tests and dev files
+tests/
+*.test.py
+pytest.ini
+.pytest_cache
+.coverage
+htmlcov/
+requirements-dev.txt
+dev-setup.sh
+
+# Data and runtime files
+data/
+*.db
+*.sqlite
