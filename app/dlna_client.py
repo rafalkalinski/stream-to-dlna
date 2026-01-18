@@ -51,6 +51,7 @@ class DLNAClient:
         headers = {
             'Content-Type': 'text/xml; charset="utf-8"',
             'SOAPAction': f'"urn:schemas-upnp-org:service:AVTransport:1#{action}"',
+            'Connection': 'close',  # Tell device to close socket after response
         }
 
         try:
@@ -304,16 +305,22 @@ class DLNAClient:
                             f"DLNA.ORG_CI=0;"
                             f"DLNA.ORG_FLAGS=01700000000000000000000000000000")
 
-        # Build DIDL-Lite XML - exact format from Gemini example
-        metadata = f'''<DIDL-Lite xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/" xmlns:dlna="urn:schemas-upnp-org:metadata-1-0/dlna/">
-  <item id="0" parentID="-1" restricted="1">
-    <dc:title>{title_escaped}</dc:title>
-    <upnp:class>object.item.audioItem.musicTrack</upnp:class>
-    <res protocolInfo="{protocol_info}">{url_escaped}</res>
-  </item>
-</DIDL-Lite>'''
+        # Build DIDL-Lite XML - single line without whitespace (some parsers are sensitive)
+        # NOTE: Do NOT use html.escape() on the entire XML - devices expect actual XML tags
+        metadata = (
+            f'<DIDL-Lite xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/" '
+            f'xmlns:dc="http://purl.org/dc/elements/1.1/" '
+            f'xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/" '
+            f'xmlns:dlna="urn:schemas-upnp-org:metadata-1-0/dlna/">'
+            f'<item id="0" parentID="-1" restricted="1">'
+            f'<dc:title>{title_escaped}</dc:title>'
+            f'<upnp:class>object.item.audioItem.musicTrack</upnp:class>'
+            f'<res protocolInfo="{protocol_info}">{url_escaped}</res>'
+            f'</item>'
+            f'</DIDL-Lite>'
+        )
 
-        logger.debug(f"Generated DIDL metadata:\n{metadata}")
+        logger.debug(f"Generated DIDL metadata (length={len(metadata)}): {metadata[:200]}...")
         return metadata
 
     def play_url(self, url: str, title: str = "Audio Stream", mime_type: str = "audio/mpeg",
