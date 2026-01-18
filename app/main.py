@@ -80,10 +80,6 @@ device_manager: DeviceManager | None = None
 stream_cache: StreamFormatCache | None = None
 rate_limiter = None  # Will be initialized after config is loaded
 
-# Build info from Docker environment variables
-BUILD_HASH = os.environ.get('BUILD_HASH', 'dev')
-BUILD_DATE = os.environ.get('BUILD_DATE', 'unknown')
-
 
 def get_local_ip() -> str:
     """Get local IP address of the server."""
@@ -525,9 +521,7 @@ def index():
         'dev.html',
         default_stream_url=config.default_stream_url,
         default_device_ip=config.default_device_ip,
-        version=__version__,
-        build_hash=BUILD_HASH,
-        build_date=BUILD_DATE
+        version=__version__
     )
 
 
