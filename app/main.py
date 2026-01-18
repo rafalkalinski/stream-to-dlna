@@ -824,15 +824,20 @@ def play():
         else:
             metadata_mime_type = stream_format or "audio/mpeg"
 
-        # Check if metadata should be disabled (debug parameter)
-        no_metadata = request.args.get('no_metadata', '').lower() == 'true'
+        # Check if metadata should be disabled
+        # Priority: URL parameter > config setting
+        no_metadata_param = request.args.get('no_metadata', '').lower() == 'true'
+        use_metadata = not (no_metadata_param or config.disable_metadata)
 
-        # Send to DLNA device with proper metadata
+        if not use_metadata:
+            logger.info("DIDL-Lite metadata disabled (config or URL parameter)")
+
+        # Send to DLNA device
         success = active_client.play_url(
             playback_url,
             title=stream_title,
             mime_type=metadata_mime_type,
-            use_metadata=not no_metadata
+            use_metadata=use_metadata
         )
 
         if success:
