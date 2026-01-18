@@ -4,6 +4,9 @@ services:
   stream-to-dlna:
     build:
       context: .
+      args:
+        - BUILD_HASH=${BUILD_HASH:-dev}
+        - BUILD_DATE=${BUILD_DATE:-unknown}
     image: stream-to-dlna:latest
     container_name: stream-to-dlna
     restart: unless-stopped
