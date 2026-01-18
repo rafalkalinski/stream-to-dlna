@@ -49,10 +49,11 @@ class Config:
     def disable_metadata(self) -> bool:
         """Check if DIDL-Lite metadata should be disabled.
 
-        Some devices timeout when parsing DIDL-Lite metadata.
-        Set dlna.disable_metadata: true in config for such devices.
+        Many devices timeout when parsing DIDL-Lite metadata.
+        Default: True (disabled) for maximum compatibility.
+        Set dlna.disable_metadata: false to enable metadata.
         """
-        return self.get('dlna.disable_metadata', False)
+        return self.get('dlna.disable_metadata', True)
 
     @property
     def server_host(self) -> str:
