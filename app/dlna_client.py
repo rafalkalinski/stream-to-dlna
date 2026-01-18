@@ -73,23 +73,19 @@ class DLNAClient:
             logger.error(f"Failed to send SOAP request {action}: {e}")
             return None
 
-    def set_av_transport_uri(self, uri: str, metadata: str = "") -> bool:
+    def set_av_transport_uri(self, uri: str) -> bool:
         """Set the URI of the media to play.
 
         Note: Uses 15s timeout as some devices need time to validate the stream URL.
         """
         logger.info(f"Setting AV Transport URI to {uri}")
 
-        # Log metadata length for debugging
-        if metadata:
-            logger.debug(f"Metadata length: {len(metadata)} bytes")
-
         # Escape XML entities in URI
         uri_escaped = uri.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
 
         arguments = {
             'CurrentURI': uri_escaped,
-            'CurrentURIMetaData': metadata
+            'CurrentURIMetaData': ''
         }
 
         # Use 15s timeout for SetAVTransportURI
@@ -210,142 +206,17 @@ class DLNAClient:
         logger.debug(f"GetTransportInfo failed after {retries + 1} attempts: {last_error}")
         return None
 
-    def _get_protocol_info_for_mime(self, mime_type: str) -> str | None:
+    def play_url(self, url: str) -> bool:
         """
-        Get the exact protocolInfo string from device capabilities for a given MIME type.
-        Tries exact match first, then fallback to alternative MIME types (e.g., audio/aac -> audio/mp4).
-
-        Args:
-            mime_type: MIME type to search for (e.g., 'audio/mpeg', 'audio/aac')
-
-        Returns:
-            Full protocolInfo string from device, or None if not found
-        """
-        if not self.capabilities or not self.capabilities.get('raw_protocol_info'):
-            return None
-
-        raw_info = self.capabilities['raw_protocol_info']
-        protocols = raw_info.split(',')
-
-        # Build list of MIME types to try (in order of preference)
-        mime_types_to_try = [mime_type.lower()]
-
-        # Add fallback MIME types for AAC
-        if 'aac' in mime_type.lower():
-            # Try audio/mp4 first (most common for AAC in DLNA)
-            mime_types_to_try = ['audio/mp4', 'audio/aac', 'audio/aacp', 'audio/x-aac']
-        elif 'mp3' in mime_type.lower() or 'mpeg' in mime_type.lower():
-            mime_types_to_try = ['audio/mpeg', 'audio/mp3']
-
-        # Search for matching protocol info
-        for mime_to_search in mime_types_to_try:
-            for proto in protocols:
-                proto_lower = proto.lower()
-                # Format is: http-get:*:audio/mpeg:DLNA.ORG_PN=MP3;...
-                # Extract MIME type from protocol string (third field)
-                parts = proto.split(':')
-                if len(parts) >= 3:
-                    proto_mime = parts[2].lower()
-                    if proto_mime == mime_to_search and 'http-get' in proto_lower:
-                        logger.info(f"Found matching protocol for {mime_type} using {mime_to_search}: {proto.strip()}")
-                        return proto.strip()
-
-        logger.warning(f"No matching protocol found for {mime_type} (tried: {mime_types_to_try})")
-        return None
-
-    def _build_didl_metadata(self, url: str, title: str = "Audio Stream", mime_type: str = "audio/mpeg") -> str:
-        """
-        Build DIDL-Lite metadata XML for the stream with proper DLNA flags.
-
-        Args:
-            url: Stream URL
-            title: Stream title
-            mime_type: MIME type of the stream (e.g., 'audio/mpeg', 'audio/aac')
-
-        Returns:
-            DIDL-Lite XML string
-        """
-        # Escape XML entities
-        title_escaped = (title.replace('&', '&amp;')
-                              .replace('<', '&lt;')
-                              .replace('>', '&gt;')
-                              .replace('"', '&quot;')
-                              .replace("'", '&apos;'))
-
-        url_escaped = (url.replace('&', '&amp;')
-                          .replace('<', '&lt;')
-                          .replace('>', '&gt;')
-                          .replace('"', '&quot;')
-                          .replace("'", '&apos;'))
-
-        # Try to get exact protocolInfo from device capabilities first
-        protocol_info = self._get_protocol_info_for_mime(mime_type)
-
-        if not protocol_info:
-            # Fallback: Build protocolInfo manually
-            logger.debug(f"Device doesn't declare support for {mime_type}, building protocolInfo manually")
-
-            # Determine DLNA profile name based on MIME type
-            if 'mpeg' in mime_type.lower() or 'mp3' in mime_type.lower():
-                dlna_pn = "MP3"
-            elif 'aac' in mime_type.lower() or 'mp4' in mime_type.lower():
-                dlna_pn = "AAC_ISO"
-            elif 'flac' in mime_type.lower():
-                dlna_pn = "FLAC"
-            else:
-                dlna_pn = "MP3"  # Default fallback
-
-            # Build protocolInfo with DLNA flags
-            # DLNA.ORG_OP=01: time seek supported
-            # DLNA.ORG_CI=0: no transcoding
-            # DLNA.ORG_FLAGS=01700000000000000000000000000000: streaming mode flags
-            protocol_info = (f"http-get:*:{mime_type}:"
-                            f"DLNA.ORG_PN={dlna_pn};"
-                            f"DLNA.ORG_OP=01;"
-                            f"DLNA.ORG_CI=0;"
-                            f"DLNA.ORG_FLAGS=01700000000000000000000000000000")
-
-        # Build DIDL-Lite XML - single line without whitespace (some parsers are sensitive)
-        # NOTE: Do NOT use html.escape() on the entire XML - devices expect actual XML tags
-        metadata = (
-            f'<DIDL-Lite xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/" '
-            f'xmlns:dc="http://purl.org/dc/elements/1.1/" '
-            f'xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/" '
-            f'xmlns:dlna="urn:schemas-upnp-org:metadata-1-0/dlna/">'
-            f'<item id="0" parentID="-1" restricted="1">'
-            f'<dc:title>{title_escaped}</dc:title>'
-            f'<upnp:class>object.item.audioItem.musicTrack</upnp:class>'
-            f'<res protocolInfo="{protocol_info}">{url_escaped}</res>'
-            f'</item>'
-            f'</DIDL-Lite>'
-        )
-
-        logger.debug(f"Generated DIDL metadata (length={len(metadata)}): {metadata[:200]}...")
-        return metadata
-
-    def play_url(self, url: str, title: str = "Audio Stream", mime_type: str = "audio/mpeg",
-                 use_metadata: bool = True) -> bool:
-        """
-        Set URI and start playback in one call with proper DIDL-Lite metadata.
+        Set URI and start playback.
 
         Args:
             url: Stream URL to play
-            title: Stream title for metadata
-            mime_type: MIME type of the stream
-            use_metadata: If False, send empty metadata (for problematic devices)
 
         Returns:
             True if successful, False otherwise
         """
-        # Build DIDL-Lite metadata (or empty if disabled)
-        if use_metadata:
-            metadata = self._build_didl_metadata(url, title, mime_type)
-            logger.debug(f"Setting URI with metadata: {metadata[:200]}...")
-        else:
-            metadata = ""
-            logger.warning("DIDL-Lite metadata disabled - sending empty metadata")
-
-        if not self.set_av_transport_uri(url, metadata):
+        if not self.set_av_transport_uri(url):
             return False
 
         # Wait for device to process URI before sending Play command

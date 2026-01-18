@@ -247,6 +247,46 @@
         .timestamp { color: #7ee787; }
         .error { color: #f85149; }
         .success { color: #3fb950; }
+        .tag-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .tag {
+            display: inline-block;
+            padding: 4px 10px;
+            background: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 16px;
+            font-size: 12px;
+            color: #8b949e;
+            cursor: pointer;
+            transition: all 0.15s;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .tag:hover {
+            background: #30363d;
+            border-color: #58a6ff;
+            color: #c9d1d9;
+        }
+        .tag-label {
+            color: #58a6ff;
+            font-weight: 500;
+        }
+        .tag-value {
+            color: #8b949e;
+            margin-left: 4px;
+        }
+        .tag-loading {
+            color: #6e7681;
+            font-style: italic;
+            font-size: 12px;
+            margin-top: 8px;
+        }
     </style>
 </head>
 <body>
@@ -308,6 +348,7 @@
                     <input type="text" id="select_ip" placeholder="192.168.1.100" value="{{ default_device_ip }}">
                 </div>
                 <button id="btn-select-device" onclick="selectDevice()">Select Device</button>
+                <div id="device-tags" class="tag-container"></div>
             </div>
 
             <div class="api-section">
@@ -330,6 +371,7 @@
                     <input type="text" id="play_url" value="{{ default_stream_url }}" placeholder="http://stream-url.com/radio">
                 </div>
                 <button id="btn-play" onclick="play()">Play</button>
+                <div id="stream-tags" class="tag-container"></div>
             </div>
 
             <div class="api-section">
@@ -496,8 +538,75 @@
             makeRequest('GET', '/health', button);
         }
 
+        // Load cached devices as tags
+        async function loadDeviceTags() {
+            const container = document.getElementById('device-tags');
+            try {
+                const response = await fetch('/devices?force_scan=false');
+                const data = await response.json();
+
+                if (data.devices && data.devices.length > 0) {
+                    container.innerHTML = data.devices.map(device => {
+                        const name = device.friendly_name || 'Unknown';
+                        const ip = device.ip || '';
+                        return `<span class="tag" onclick="setDeviceIp('${ip}')" title="${name}">
+                            <span class="tag-label">${escapeHtml(name.substring(0, 20))}</span>
+                            <span class="tag-value">${ip}</span>
+                        </span>`;
+                    }).join('');
+                } else {
+                    container.innerHTML = '';
+                }
+            } catch (e) {
+                container.innerHTML = '';
+            }
+        }
+
+        // Load cached streams as tags
+        async function loadStreamTags() {
+            const container = document.getElementById('stream-tags');
+            try {
+                const response = await fetch('/streams/cached');
+                const data = await response.json();
+
+                if (data.streams && data.streams.length > 0) {
+                    container.innerHTML = data.streams.map(stream => {
+                        const url = stream.url || '';
+                        const format = stream.mime_type || '';
+                        // Extract hostname from URL for display
+                        let hostname = url;
+                        try {
+                            hostname = new URL(url).hostname;
+                        } catch (e) {}
+                        return `<span class="tag" onclick="setStreamUrl('${escapeHtml(url)}')" title="${escapeHtml(url)}">
+                            <span class="tag-label">${escapeHtml(hostname.substring(0, 25))}</span>
+                            <span class="tag-value">${format.replace('audio/', '')}</span>
+                        </span>`;
+                    }).join('');
+                } else {
+                    container.innerHTML = '';
+                }
+            } catch (e) {
+                container.innerHTML = '';
+            }
+        }
+
+        // Set device IP from tag click
+        function setDeviceIp(ip) {
+            document.getElementById('select_ip').value = ip;
+        }
+
+        // Set stream URL from tag click
+        function setStreamUrl(url) {
+            document.getElementById('play_url').value = url;
+        }
+
         // Enter key handling for input fields
         document.addEventListener('DOMContentLoaded', function() {
+            // Load tags on page load
+            loadDeviceTags();
+            loadStreamTags();
+
             // Select device IP input
             const selectIpInput = document.getElementById('select_ip');
             if (selectIpInput) {

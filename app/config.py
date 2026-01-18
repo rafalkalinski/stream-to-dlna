@@ -46,16 +46,6 @@ class Config:
         return self.get('dlna.default_device_ip', '')
 
     @property
-    def disable_metadata(self) -> bool:
-        """Check if DIDL-Lite metadata should be disabled.
-
-        Many devices timeout when parsing DIDL-Lite metadata.
-        Default: True (disabled) for maximum compatibility.
-        Set dlna.disable_metadata: false to enable metadata.
-        """
-        return self.get('dlna.disable_metadata', True)
-
-    @property
     def server_host(self) -> str:
         """Get Flask server host."""
         return self.get('server.host', '0.0.0.0')

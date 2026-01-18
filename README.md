@@ -3,7 +3,7 @@
 [![Tests](https://github.com/rafalkalinski/stream-to-dlna/actions/workflows/tests.yml/badge.svg)](https://github.com/rafalkalinski/stream-to-dlna/actions/workflows/tests.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Docker](https://img.shields.io/docker/pulls/erkalina/stream-to-dlna.svg)](https://hub.docker.com/r/erkalina/stream-to-dlna)
-[![Version](https://img.shields.io/badge/version-v0.3-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-v0.4-blue.svg)](CHANGELOG.md)
 [![Security](https://img.shields.io/badge/security-reviewed-green.svg)](SECURITY.md)
 
 Stream internet radio to DLNA devices with automatic format detection and smart transcoding.
@@ -330,7 +330,7 @@ Mode is automatically selected based on format detection and device capabilities
 
 1. Background scan on startup (10s timeout)
 2. Results cached with 2-hour TTL
-3. Manual refresh via `/scan?force=true`
+3. Manual refresh via `/devices?force_scan=true`
 4. Direct connection fallback when SSDP fails
 
 Only MediaRenderer devices (with AVTransport service) are discovered. MediaServer devices like NAS are filtered out.
@@ -347,8 +347,7 @@ Only MediaRenderer devices (with AVTransport service) are discovered. MediaServe
 - Check firewall rules
 
 **Cache not updating:**
-- Force refresh: `/scan?force=true`
-- Adjust TTL: `/scan?max_cache_age=3600`
+- Force refresh: `/devices?force_scan=true`
 
 ## Development
 
