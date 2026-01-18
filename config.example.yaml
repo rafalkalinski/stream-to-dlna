@@ -13,10 +13,11 @@ dlna:
   # default_device_ip: "192.168.0.179"
 
   # Disable DIDL-Lite metadata (for problematic devices)
-  # Some devices (e.g., Panasonic PMX9) timeout when parsing DIDL-Lite metadata
-  # Set to true if SetAVTransportURI times out but works with ?no_metadata=true
-  # Default: false (metadata enabled)
-  # disable_metadata: true
+  # Many devices (e.g., Panasonic PMX9) timeout when parsing DIDL-Lite metadata
+  # Most devices ignore metadata anyway, so it's safe to disable by default
+  # Set to false if you want to enable metadata (not recommended)
+  # Default: true (metadata disabled for compatibility)
+  disable_metadata: true
 
 # API server settings
 server:
