@@ -101,6 +101,8 @@ class AudioStreamer:
         self.server_thread: threading.Thread | None = None
         self.running = False
         self.stderr_line_count = 0  # Track stderr lines to prevent memory leak
+        self.last_stderr_lines = []  # Store last N lines for crash debugging
+        self.max_stored_stderr = 20  # Keep last 20 lines
 
     @staticmethod
     def _cleanup_orphaned_ffmpeg():
@@ -227,9 +229,16 @@ class AudioStreamer:
         if self.ffmpeg_process and self.ffmpeg_process.stderr:
             for line in iter(self.ffmpeg_process.stderr.readline, b''):
                 if line:
+                    line_text = line.decode('utf-8', errors='replace').strip()
                     self.stderr_line_count += 1
+
+                    # Store last N lines for crash debugging
+                    self.last_stderr_lines.append(line_text)
+                    if len(self.last_stderr_lines) > self.max_stored_stderr:
+                        self.last_stderr_lines.pop(0)
+
                     if self.stderr_line_count <= self.max_stderr_lines:
-                        logger.debug(f"FFmpeg: {line.decode('utf-8').strip()}")
+                        logger.debug(f"FFmpeg: {line_text}")
                     elif self.stderr_line_count == self.max_stderr_lines + 1:
                         logger.warning(f"FFmpeg stderr buffer limit ({self.max_stderr_lines} lines) reached, suppressing further output")
                     # Continue reading to prevent buffer blocking but don't log
@@ -276,7 +285,15 @@ class AudioStreamer:
 
         # FFmpeg stopped - cleanup if needed
         if self.running:
-            logger.warning("FFmpeg process ended unexpectedly, cleaning up")
+            exit_code = self.ffmpeg_process.returncode if self.ffmpeg_process else None
+            logger.warning(f"FFmpeg process ended unexpectedly (exit code: {exit_code}), cleaning up")
+
+            # Log last stderr lines for debugging
+            if self.last_stderr_lines:
+                logger.warning("Last FFmpeg output:")
+                for line in self.last_stderr_lines[-10:]:  # Last 10 lines
+                    logger.warning(f"  {line}")
+
             self.running = False
             if self.http_server:
                 try:
