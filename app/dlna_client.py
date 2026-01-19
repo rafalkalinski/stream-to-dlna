@@ -206,12 +206,13 @@ class DLNAClient:
         logger.debug(f"GetTransportInfo failed after {retries + 1} attempts: {last_error}")
         return None
 
-    def play_url(self, url: str) -> bool:
+    def play_url(self, url: str, max_retries: int = 3) -> bool:
         """
-        Set URI and start playback.
+        Set URI and start playback with retry logic.
 
         Args:
             url: Stream URL to play
+            max_retries: Number of retry attempts for Play command
 
         Returns:
             True if successful, False otherwise
@@ -222,9 +223,17 @@ class DLNAClient:
         # Wait for device to process URI before sending Play command
         # Some devices (e.g., Panasonic PMX9) need time to prepare stream
         import time
-        time.sleep(1.0)
+        time.sleep(1.5)
 
-        return self.play()
+        # Retry Play command - device may need time to buffer stream
+        for attempt in range(max_retries):
+            if self.play():
+                return True
+            if attempt < max_retries - 1:
+                logger.info(f"Play failed (attempt {attempt + 1}/{max_retries}), retrying in 2s...")
+                time.sleep(2.0)
+
+        return False
 
     def get_protocol_info(self) -> str | None:
         """

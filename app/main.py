@@ -80,10 +80,6 @@ device_manager: DeviceManager | None = None
 stream_cache: StreamFormatCache | None = None
 rate_limiter = None  # Will be initialized after config is loaded
 
-# Build info from Docker environment variables
-BUILD_HASH = os.environ.get('BUILD_HASH', 'dev')
-BUILD_DATE = os.environ.get('BUILD_DATE', 'unknown')
-
 
 def get_local_ip() -> str:
     """Get local IP address of the server."""
@@ -221,7 +217,7 @@ def _detect_format_with_ffprobe(stream_url: str) -> str | None:
         # -analyzeduration and -probesize limit how much data is downloaded
         cmd = [
             'ffprobe',
-            '-v', 'quiet',
+            '-v', 'error',
             '-print_format', 'json',
             '-show_format',
             '-show_streams',
@@ -525,9 +521,7 @@ def index():
         'dev.html',
         default_stream_url=config.default_stream_url,
         default_device_ip=config.default_device_ip,
-        version=__version__,
-        build_hash=BUILD_HASH,
-        build_date=BUILD_DATE
+        version=__version__
     )
 
 
@@ -779,6 +773,15 @@ def play():
 
         # Create appropriate streamer
         if needs_transcoding:
+            # Callback to stop DLNA device when FFmpeg crashes
+            def on_ffmpeg_crash():
+                if dlna_client:
+                    logger.warning("FFmpeg crashed - stopping DLNA device")
+                    try:
+                        dlna_client.stop()
+                    except Exception as e:
+                        logger.debug(f"Error stopping DLNA after crash: {e}")
+
             # Use FFmpeg transcoding with configured parameters
             streamer = AudioStreamer(
                 stream_url=stream_url,
@@ -786,7 +789,8 @@ def play():
                 bitrate=config.mp3_bitrate,
                 chunk_size=config.ffmpeg_chunk_size,
                 max_stderr_lines=config.ffmpeg_max_stderr_lines,
-                protocol_whitelist=config.ffmpeg_protocol_whitelist
+                protocol_whitelist=config.ffmpeg_protocol_whitelist,
+                on_crash_callback=on_ffmpeg_crash
             )
             streamer.start()
 
@@ -894,11 +898,37 @@ def status():
                 'ip': current_device.get('ip')
             }
 
-        return jsonify({
+        # Calculate effective state based on both sources
+        effective_state = 'idle'
+        state_details = None
+        dlna_state = dlna_info.get('state') if dlna_info else None
+
+        if is_streaming and dlna_state == 'PLAYING':
+            effective_state = 'playing'
+        elif is_streaming and dlna_state == 'TRANSITIONING':
+            effective_state = 'starting'
+        elif is_streaming and dlna_state in ('STOPPED', 'NO_MEDIA_PRESENT'):
+            effective_state = 'error'
+            state_details = 'Stream running but device stopped'
+        elif is_streaming and dlna_state is None:
+            effective_state = 'playing'
+            state_details = 'Device not responding'
+        elif not is_streaming and dlna_state in ('PLAYING', 'TRANSITIONING'):
+            effective_state = 'error'
+            state_details = f'Stream ended but device stuck in {dlna_state}'
+        elif not is_streaming and dlna_state in ('STOPPED', 'NO_MEDIA_PRESENT', None):
+            effective_state = 'idle'
+
+        response = {
             'streaming': is_streaming,
             'dlna': dlna_info,
-            'current_device': device_info
-        }), 200
+            'current_device': device_info,
+            'effective_state': effective_state
+        }
+        if state_details:
+            response['state_details'] = state_details
+
+        return jsonify(response), 200
 
     except Exception as e:
         logger.error(f"Error getting status: {e}", exc_info=True)
