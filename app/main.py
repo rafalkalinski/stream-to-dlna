@@ -217,7 +217,7 @@ def _detect_format_with_ffprobe(stream_url: str) -> str | None:
         # -analyzeduration and -probesize limit how much data is downloaded
         cmd = [
             'ffprobe',
-            '-v', 'quiet',
+            '-v', 'error',
             '-print_format', 'json',
             '-show_format',
             '-show_streams',
