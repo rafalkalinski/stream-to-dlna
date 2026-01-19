@@ -1,27 +1,11 @@
 # syntax=docker/dockerfile:1
 FROM python:3.14-slim
 
-# Build arguments for versioning
-ARG BUILD_HASH=dev
-ARG BUILD_DATE=unknown
-
-# Set as environment variables for runtime access
-ENV BUILD_HASH=${BUILD_HASH}
-ENV BUILD_DATE=${BUILD_DATE}
-
-# Install xz-utils for extracting static FFmpeg, then download and install FFmpeg
-# Using official static builds from https://johnvansickle.com/ffmpeg/
+# Install FFmpeg from apt (static builds have SSL compatibility issues)
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update && apt-get install -y --no-install-recommends xz-utils && \
+    apt-get update && apt-get install -y --no-install-recommends ffmpeg && \
     rm -rf /tmp/* /var/tmp/*
-
-ADD https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz /tmp/ffmpeg.tar.xz
-RUN tar xf /tmp/ffmpeg.tar.xz -C /tmp/ --strip-components=1 && \
-    mv /tmp/ffmpeg /usr/local/bin/ && \
-    mv /tmp/ffprobe /usr/local/bin/ && \
-    rm -rf /tmp/* && \
-    apt-get purge -y xz-utils && apt-get autoremove -y
 
 # Set working directory
 WORKDIR /app
