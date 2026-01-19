@@ -70,7 +70,7 @@ The `deploy.sh` script automatically:
 - Pulls latest changes from git
 - Builds Docker image with BuildKit (faster builds with layer caching)
 
-**Performance:** First build ~90 seconds, rebuilds ~10-20 seconds (thanks to BuildKit cache and static FFmpeg binary)
+**Performance:** First build ~2 minutes, rebuilds ~10-20 seconds (thanks to BuildKit cache)
 
 ### Logging
 
