@@ -51,3 +51,12 @@ jobs:
           # Use GitHub Actions cache for faster subsequent builds
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Update Docker Hub description
+        if: github.event_name != 'pull_request'
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ secrets.DOCKERHUB_USERNAME }}/stream-to-dlna
+          readme-filepath: ./DOCKER_HUB.md
