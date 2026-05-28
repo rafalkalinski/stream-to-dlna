@@ -112,9 +112,14 @@ class DLNAClient:
         # Escape XML entities in URI
         uri_escaped = uri.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
 
+        # DIDL-Lite metadata must be XML-escaped when used as a SOAP string value.
+        # Inserting raw XML would create nested XML instead of the expected string type.
+        didl = self._build_didl_metadata(uri, mime_type)
+        didl_escaped = didl.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
+
         arguments = {
             'CurrentURI': uri_escaped,
-            'CurrentURIMetaData': self._build_didl_metadata(uri, mime_type)
+            'CurrentURIMetaData': didl_escaped
         }
 
         # Use 15s timeout for SetAVTransportURI
