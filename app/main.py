@@ -802,8 +802,8 @@ def play():
                 }), 500
 
             # Get transcoded stream URL
-            if config.stream_public_url:
-                playback_url = f"{config.stream_public_url}/stream.mp3"
+            if config.stream_external_url:
+                playback_url = f"{config.stream_external_url}/stream.mp3"
                 logger.info(f"Using configured public URL: {playback_url}")
             else:
                 local_ip = get_local_ip()
