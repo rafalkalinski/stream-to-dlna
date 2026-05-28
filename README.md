@@ -134,7 +134,7 @@ radio:
 
 # Optional: Auto-select DLNA device on startup
 dlna:
-  default_device_ip: "192.168.0.179"
+  default_device_ip: "192.168.1.100"
 
 server:
   host: "0.0.0.0"
