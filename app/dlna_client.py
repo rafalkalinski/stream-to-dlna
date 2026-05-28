@@ -73,7 +73,36 @@ class DLNAClient:
             logger.error(f"Failed to send SOAP request {action}: {e}")
             return None
 
-    def set_av_transport_uri(self, uri: str) -> bool:
+    @staticmethod
+    def _build_didl_metadata(uri: str, mime_type: str = 'audio/mpeg') -> str:
+        """Build DIDL-Lite XML metadata required by strict DLNA renderers (e.g. Samsung).
+
+        Without this metadata Samsung accepts SetAVTransportURI but never initiates GET.
+        """
+        # Map MIME type to DLNA profile info
+        profile_map = {
+            'audio/mpeg': 'DLNA.ORG_PN=MP3;DLNA.ORG_OP=00;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=ED100000000000000000000000000000',
+            'audio/mp3':  'DLNA.ORG_PN=MP3;DLNA.ORG_OP=00;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=ED100000000000000000000000000000',
+            'audio/flac': 'DLNA.ORG_PN=FLAC;DLNA.ORG_OP=00;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=ED100000000000000000000000000000',
+        }
+        dlna_profile = profile_map.get(mime_type, '*')
+        protocol_info = f'http-get:*:{mime_type}:{dlna_profile}'
+
+        uri_esc = uri.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
+
+        return (
+            '<DIDL-Lite xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/" '
+            'xmlns:dc="http://purl.org/dc/elements/1.1/" '
+            'xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/">'
+            '<item id="1" parentID="0" restricted="1">'
+            '<dc:title>Radio Stream</dc:title>'
+            '<upnp:class>object.item.audioItem.audioBroadcast</upnp:class>'
+            f'<res protocolInfo="{protocol_info}">{uri_esc}</res>'
+            '</item>'
+            '</DIDL-Lite>'
+        )
+
+    def set_av_transport_uri(self, uri: str, mime_type: str = 'audio/mpeg') -> bool:
         """Set the URI of the media to play.
 
         Note: Uses 15s timeout as some devices need time to validate the stream URL.
@@ -85,7 +114,7 @@ class DLNAClient:
 
         arguments = {
             'CurrentURI': uri_escaped,
-            'CurrentURIMetaData': ''
+            'CurrentURIMetaData': self._build_didl_metadata(uri, mime_type)
         }
 
         # Use 15s timeout for SetAVTransportURI
@@ -206,7 +235,7 @@ class DLNAClient:
         logger.debug(f"GetTransportInfo failed after {retries + 1} attempts: {last_error}")
         return None
 
-    def play_url(self, url: str, max_retries: int = 3) -> bool:
+    def play_url(self, url: str, mime_type: str = 'audio/mpeg', max_retries: int = 3) -> bool:
         """
         Set URI and start playback with retry logic.
 
@@ -217,7 +246,7 @@ class DLNAClient:
         Returns:
             True if successful, False otherwise
         """
-        if not self.set_av_transport_uri(url):
+        if not self.set_av_transport_uri(url, mime_type):
             return False
 
         # Wait for device to process URI before sending Play command

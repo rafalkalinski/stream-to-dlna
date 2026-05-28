@@ -815,8 +815,9 @@ def play():
             streamer.start()
             playback_url = stream_url
 
-        # Send to DLNA device
-        success = active_client.play_url(playback_url)
+        # Send to DLNA device — pass MIME type for DIDL-Lite metadata generation
+        playback_mime = 'audio/mpeg' if needs_transcoding else (stream_format or 'audio/mpeg')
+        success = active_client.play_url(playback_url, mime_type=playback_mime)
 
         if success:
             return jsonify({
