@@ -52,6 +52,19 @@ class StreamHandler(BaseHTTPRequestHandler):
     ffmpeg_process: subprocess.Popen | None = None
     chunk_size: int = 8192  # Default chunk size
 
+    def do_HEAD(self):
+        """Handle HEAD request — some DLNA devices (e.g. Samsung) verify the URL
+        with HEAD before accepting SetAVTransportURI. Return proper headers without body."""
+        if self.path == '/stream.mp3':
+            self.send_response(200)
+            self.send_header('Content-Type', 'audio/mpeg')
+            self.send_header('Connection', 'close')
+            self.send_header('Accept-Ranges', 'none')
+            self.end_headers()
+        else:
+            self.send_response(404)
+            self.end_headers()
+
     def do_GET(self):
         """Handle GET request for audio stream."""
         if self.path == '/stream.mp3':
