@@ -52,7 +52,7 @@ server:
   port: 5000
 
 streaming:
-  port: 8080
+  internal_port: 8080
   mp3_bitrate: "128k"
 
 # Persistent storage for device cache and stream format cache
