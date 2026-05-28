@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.5] - 2026-05-28
+
+### Changed
+- **Auto-versioning**: Version is now baked into the Docker image at build time via `APP_VERSION` build arg and env var. `MAJOR.MINOR` comes from a git tag (e.g. `v0.5.0`), patch number is the commit count since that tag. To bump `MAJOR.MINOR`, create a new tag on the desired commit.
+
 ## [v0.4] - 2026-01-17
 
 User experience improvements, enhanced codec detection, and persistent stream format caching.
