@@ -52,13 +52,35 @@ class StreamHandler(BaseHTTPRequestHandler):
     ffmpeg_process: subprocess.Popen | None = None
     chunk_size: int = 8192  # Default chunk size
 
+    def _send_stream_headers(self):
+        """Send common headers required by DLNA renderers (including Samsung)."""
+        self.send_header('Content-Type', 'audio/mpeg')
+        self.send_header('Connection', 'close')
+        self.send_header('Accept-Ranges', 'none')
+        # DLNA compliance headers — Samsung Q90R and similar devices require these
+        # to initiate GET after accepting SetAVTransportURI
+        self.send_header('transferMode.dlna.org', 'Streaming')
+        self.send_header(
+            'contentFeatures.dlna.org',
+            'DLNA.ORG_PN=MP3;DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=ED100000000000000000000000000000'
+        )
+
+    def do_HEAD(self):
+        """Handle HEAD request — Samsung and other strict DLNA devices verify the URL
+        with HEAD before accepting SetAVTransportURI."""
+        if self.path == '/stream.mp3':
+            self.send_response(200)
+            self._send_stream_headers()
+            self.end_headers()
+        else:
+            self.send_response(404)
+            self.end_headers()
+
     def do_GET(self):
         """Handle GET request for audio stream."""
         if self.path == '/stream.mp3':
             self.send_response(200)
-            self.send_header('Content-Type', 'audio/mpeg')
-            self.send_header('Connection', 'close')
-            self.send_header('Accept-Ranges', 'none')
+            self._send_stream_headers()
             self.end_headers()
 
             try:
