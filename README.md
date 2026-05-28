@@ -3,7 +3,7 @@
 [![Tests](https://github.com/rafalkalinski/stream-to-dlna/actions/workflows/tests.yml/badge.svg)](https://github.com/rafalkalinski/stream-to-dlna/actions/workflows/tests.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Docker](https://img.shields.io/docker/pulls/erkalina/stream-to-dlna.svg)](https://hub.docker.com/r/erkalina/stream-to-dlna)
-[![Version](https://img.shields.io/badge/version-v0.5-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-v0.5.x-blue.svg)](CHANGELOG.md)
 [![Security](https://img.shields.io/badge/security-reviewed-green.svg)](SECURITY.md)
 
 Stream internet radio to DLNA devices with automatic format detection and smart transcoding.
