@@ -1,3 +1,5 @@
 """DLNA Radio Streamer - Stream internet radio to DLNA devices."""
 
-__version__ = "0.4.0"
+import os
+
+__version__ = os.environ.get("APP_VERSION", "0.0.0")
