@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 ## [v0.5] - 2026-05-28
 
+### Added
+- **Mobile-first GUI**: Responsive layout for phones and tablets
+  - Sticky quick-action bar (Play, Stop, Status) always visible at top
+  - Section headings become collapsible accordions on mobile
+  - Accordion state persisted in `localStorage` across page reloads
+  - Output log panel dynamically fills freed space when accordions are collapsed
+  - Desktop layout (horizontal split with draggable splitter) unchanged
+
+### Fixed
+- **DLNA compatibility with strict renderers (e.g. Samsung HW-Q90R)**:
+  - Added `HEAD` request handler to streaming server — devices like Samsung verify the stream URI with HEAD before accepting `SetAVTransportURI`; without it, `716 Resource not found` was returned
+  - Added DLNA compliance headers to HTTP responses: `transferMode.dlna.org: Streaming` and `contentFeatures.dlna.org` with proper MP3 profile and flags
+  - Added DIDL-Lite XML metadata to `SetAVTransportURI` — strict DLNA renderers require `CurrentURIMetaData` with content class and protocol info
+  - Fixed XML escaping of DIDL-Lite in SOAP body (must be escaped as a string value per UPnP spec)
+
 ### Changed
 - **Auto-versioning**: Version is now baked into the Docker image at build time via `APP_VERSION` build arg and env var. `MAJOR.MINOR` comes from a git tag (e.g. `v0.5`), patch number is the commit count since that tag. To bump `MAJOR.MINOR`, create a new tag on the desired commit (e.g. `git tag v0.6 <commit>`).
 
