@@ -18,7 +18,7 @@ fi
 
 # Remove test artifacts
 echo "Removing test artifacts..."
-rm -rf .pytest_cache .coverage coverage.xml htmlcov bandit-report.json pytest-report.html
+rm -rf .pytest_cache .coverage coverage.xml htmlcov bandit-report.json pytest-report.html .mypy_cache
 echo "[OK] Test artifacts removed"
 
 # Remove cache directories

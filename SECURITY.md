@@ -26,7 +26,7 @@ All user inputs are strictly validated:
 
 ### Process-Level File Locking
 
-- State file (`/app/state.json`) uses `fcntl` for inter-process locking
+- State file (`/data/state.json`) uses `fcntl` for inter-process locking
 - Prevents race conditions in multi-worker environments
 - Shared lock for reads, exclusive lock for writes
 
@@ -141,9 +141,10 @@ When `api_auth_enabled: true`:
 
 Enable rate limiting to prevent API abuse:
 
-**Step 1:** Install Flask-Limiter
+**Step 1:** Enable Flask-Limiter in `requirements.txt` (it's commented out by default), then reinstall:
 ```bash
-pip install Flask-Limiter==3.5.0
+# In requirements.txt, uncomment: Flask-Limiter==3.5.0
+pip install -r requirements.txt
 ```
 
 **Step 2:** Enable in `config.yaml`
@@ -220,16 +221,14 @@ iptables -A OUTPUT -j DROP
 
 ### Critical: State File Exposure
 
-**Issue:** `/app/state.json` contains device IPs and network topology.
+**Issue:** `/data/state.json` contains device IPs and network topology.
 
-**Risk:** If exposed via volume mount, reveals internal network structure.
+**Risk:** If the `data/` host mount is world-readable, it reveals internal network structure.
 
 **Mitigation:**
-```yaml
-# docker-compose.yaml
-volumes:
-  - ./config.yaml:/app/config.yaml:ro  # Read-only
-  - state-data:/app                     # Named volume (not host path)
+```bash
+# Restrict permissions on the data directory on the host
+chmod 700 ./data
 ```
 
 ### Medium: Gunicorn Configuration
@@ -249,9 +248,9 @@ performance:
 
 Private IPs (10.x, 172.16-31.x, 192.168.x.x) are **allowed** by default for local streaming.
 
-To block all private IPs, edit `app/main.py`:
+To block all private IPs, uncomment the relevant lines in `app/main.py` inside `validate_stream_url()`:
 ```python
-# Uncomment lines 168-173 in validate_stream_url()
+# Uncomment to block private IP ranges:
 if hostname.startswith('10.'):
     return False
 if hostname.startswith('172.') and 16 <= int(hostname.split('.')[1]) <= 31:
