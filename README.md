@@ -14,6 +14,8 @@ Stream internet radio to DLNA devices with automatic format detection and smart 
 
 ### Core Functionality
 - **Interactive Web Console** at `http://localhost:5000` - GUI for device management and API testing
+  - Mobile-first responsive layout with sticky action bar and collapsible sections
+  - Accordion state persisted across page reloads
   - Enter key support for all input fields
 - Network discovery with SSDP/UPnP
 - Smart transcoding: passthrough when device supports native format, FFmpeg when transcoding needed
@@ -36,6 +38,9 @@ Stream internet radio to DLNA devices with automatic format detection and smart 
 - Configurable timeouts for all network operations
 - Stderr buffer limiting to prevent memory leaks
 - Single-worker architecture for consistent state management
+- DLNA compliance headers (`transferMode`, `contentFeatures`) for strict renderers
+- DIDL-Lite metadata in `SetAVTransportURI` for Samsung and other picky devices
+- HEAD request handler on streaming server (required by Samsung HW-Q90R)
 
 ### Security
 - Comprehensive input validation (IP, URL, boolean)
