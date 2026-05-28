@@ -14,6 +14,8 @@
             height: 100vh;
             overflow: hidden;
         }
+
+        /* ── Desktop layout ── */
         .container {
             display: flex;
             height: 100vh;
@@ -31,12 +33,7 @@
             flex-shrink: 0;
             transition: background 0.2s;
         }
-        .splitter:hover {
-            background: #58a6ff;
-        }
-        .splitter.dragging {
-            background: #58a6ff;
-        }
+        .splitter:hover, .splitter.dragging { background: #58a6ff; }
         .right-panel {
             flex: 1;
             display: flex;
@@ -44,6 +41,12 @@
             padding: 20px;
             min-width: 200px;
         }
+
+        /* ── Mobile quick-action bar (hidden on desktop) ── */
+        .quick-bar {
+            display: none;
+        }
+
         h1 {
             margin-bottom: 8px;
             color: #58a6ff;
@@ -77,13 +80,10 @@
             text-decoration: none;
             margin-right: 15px;
         }
-        .header-links a:hover {
-            text-decoration: underline;
-        }
-        .header-links svg {
-            vertical-align: middle;
-            margin-right: 4px;
-        }
+        .header-links a:hover { text-decoration: underline; }
+        .header-links svg { vertical-align: middle; margin-right: 4px; }
+
+        /* ── Section headings — desktop: static; mobile: accordion toggles ── */
         h2 {
             margin: 20px 0 10px 0;
             color: #f0883e;
@@ -94,6 +94,7 @@
             background: #0d1117;
             padding: 5px 0;
         }
+
         .api-section {
             background: #161b22;
             border: 1px solid #30363d;
@@ -114,16 +115,14 @@
             font-weight: 600;
             margin-right: 8px;
         }
-        .get { background: #238636; color: #ffffff; }
-        .post { background: #1f6feb; color: #ffffff; }
+        .get  { background: #238636; color: #fff; }
+        .post { background: #1f6feb; color: #fff; }
         .description {
             color: #8b949e;
             margin-bottom: 10px;
             font-size: 14px;
         }
-        .form-group {
-            margin: 10px 0;
-        }
+        .form-group { margin: 10px 0; }
         label {
             display: block;
             margin-bottom: 5px;
@@ -147,7 +146,7 @@
         }
         button {
             background: #238636;
-            color: #ffffff;
+            color: #fff;
             border: none;
             padding: 8px 16px;
             border-radius: 6px;
@@ -162,6 +161,12 @@
             cursor: not-allowed;
             opacity: 0.6;
         }
+        .btn-stop  { background: #da3633; }
+        .btn-stop:hover  { background: #f85149; }
+        .btn-stop:disabled  { background: #21262d; }
+        .btn-neutral { background: #21262d; }
+        .btn-neutral:hover { background: #30363d; }
+
         .radio-group {
             display: flex;
             gap: 15px;
@@ -174,30 +179,19 @@
             cursor: pointer;
             margin-bottom: 0;
         }
-        .radio-group input[type="radio"] {
-            margin-right: 5px;
-            cursor: pointer;
-        }
+        .radio-group input[type="radio"] { margin-right: 5px; cursor: pointer; }
         .timeout-inline {
             display: inline-flex;
             align-items: center;
             gap: 8px;
             margin-left: 20px;
         }
-        .timeout-inline input[type="number"] {
-            width: 80px;
-            padding: 4px 8px;
-        }
-        .timeout-inline label {
-            margin-bottom: 0;
-            font-size: 13px;
-        }
-        #timeout-container {
-            display: none;
-        }
-        #timeout-container.visible {
-            display: inline-flex;
-        }
+        .timeout-inline input[type="number"] { width: 80px; padding: 4px 8px; }
+        .timeout-inline label { margin-bottom: 0; font-size: 13px; }
+        #timeout-container { display: none; }
+        #timeout-container.visible { display: inline-flex; }
+
+        /* ── Output panel ── */
         .output-container {
             flex: 1;
             display: flex;
@@ -215,15 +209,8 @@
             padding-bottom: 10px;
             z-index: 10;
         }
-        .output-header h2 {
-            margin: 0;
-            position: static;
-        }
-        .clear-btn {
-            background: #21262d;
-            padding: 4px 12px;
-            font-size: 12px;
-        }
+        .output-header h2 { margin: 0; position: static; }
+        .clear-btn { background: #21262d; padding: 4px 12px; font-size: 12px; }
         .clear-btn:hover { background: #30363d; }
         #output {
             flex: 1;
@@ -239,8 +226,9 @@
             font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
         }
         .timestamp { color: #7ee787; }
-        .error { color: #f85149; }
+        .error   { color: #f85149; }
         .success { color: #3fb950; }
+
         .tag-container {
             display: flex;
             flex-wrap: wrap;
@@ -262,28 +250,108 @@
             text-overflow: ellipsis;
             white-space: nowrap;
         }
-        .tag:hover {
-            background: #30363d;
-            border-color: #58a6ff;
-            color: #c9d1d9;
-        }
-        .tag-label {
-            color: #58a6ff;
-            font-weight: 500;
-        }
-        .tag-value {
-            color: #8b949e;
-            margin-left: 4px;
-        }
-        .tag-loading {
-            color: #6e7681;
-            font-style: italic;
-            font-size: 12px;
-            margin-top: 8px;
+        .tag:hover { background: #30363d; border-color: #58a6ff; color: #c9d1d9; }
+        .tag-label { color: #58a6ff; font-weight: 500; }
+        .tag-value { color: #8b949e; margin-left: 4px; }
+
+        /* ── Mobile layout ── */
+        @media (max-width: 767px) {
+            /* Full-height flex column: quick-bar + container fill the viewport */
+            html, body { height: 100%; overflow: hidden; }
+            body { display: flex; flex-direction: column; }
+
+            /* Quick-action bar — fixed height at top */
+            .quick-bar {
+                display: flex;
+                flex: 0 0 auto;
+                gap: 8px;
+                z-index: 100;
+                background: #161b22;
+                border-bottom: 1px solid #30363d;
+                padding: 10px 16px;
+            }
+            .quick-bar button {
+                flex: 1;
+                padding: 10px 8px;
+                font-size: 15px;
+                margin-right: 0;
+            }
+
+            /* Container fills remaining height as a flex column */
+            .container {
+                flex: 1 1 0;
+                flex-direction: column;
+                height: 0; /* forces flex: 1 to fill, not content-size */
+                overflow: hidden;
+            }
+
+            /* Left panel: shrinks when accordions collapse, scrolls when too tall */
+            .left-panel {
+                flex: 0 1 auto;
+                overflow-y: auto;
+                padding: 16px;
+                max-height: 65%;
+            }
+
+            h1 {
+                font-size: 18px;
+                position: static;
+                padding-bottom: 4px;
+            }
+            .header-links { position: static; top: auto; }
+
+            /* Accordion section headings */
+            h2 {
+                position: static;
+                top: auto;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                cursor: pointer;
+                padding: 10px 0;
+                margin: 8px 0 0 0;
+                border-top: 1px solid #30363d;
+                font-size: 15px;
+                user-select: none;
+            }
+            h2[data-section]::after {
+                content: '▾';
+                font-size: 14px;
+                color: #8b949e;
+                transition: transform 0.2s;
+            }
+            h2[data-section].collapsed::after { transform: rotate(-90deg); }
+
+            /* Collapsible section content */
+            .section-group {
+                overflow: hidden;
+                transition: max-height 0.25s ease;
+            }
+            .section-group.collapsed { max-height: 0 !important; }
+
+            .splitter { display: none; }
+
+            /* Output panel: grows to fill whatever space the left panel doesn't use */
+            .right-panel {
+                flex: 1 1 0;
+                min-height: 120px;
+                padding: 12px 16px;
+                border-top: 1px solid #30363d;
+            }
+            .output-header { position: static; }
+            #output { font-size: 12px; }
         }
     </style>
 </head>
 <body>
+
+    <!-- Mobile only: sticky quick-action bar -->
+    <div class="quick-bar">
+        <button id="qbar-play" onclick="play()" style="background:#1f6feb;">▶ Play</button>
+        <button id="qbar-stop" onclick="stop()" class="btn-stop">■ Stop</button>
+        <button id="qbar-status" onclick="getStatus()" class="btn-neutral">Status</button>
+    </div>
+
     <div class="container">
         <div class="left-panel">
             <h1>
@@ -306,91 +374,76 @@
                 </a>
             </div>
 
-            <h2>Device Discovery</h2>
-
-            <div class="api-section">
-                <div class="endpoint">
-                    <span class="method get">GET</span> /devices
-                </div>
-                <div class="description">Get cached list of discovered devices</div>
-                <div class="form-group">
-                    <label>Force Scan</label>
-                    <div class="radio-group">
-                        <label>
-                            <input type="radio" name="force_scan" value="false" checked onchange="toggleTimeout()"> false
-                        </label>
-                        <label>
-                            <input type="radio" name="force_scan" value="true" onchange="toggleTimeout()"> true
-                        </label>
-                        <div id="timeout-container" class="timeout-inline">
-                            <label>Timeout (seconds):</label>
-                            <input type="number" id="scan_timeout" value="5" min="1" max="15">
+            <h2 data-section="discovery">Device Discovery</h2>
+            <div class="section-group" id="section-discovery">
+                <div class="api-section">
+                    <div class="endpoint"><span class="method get">GET</span> /devices</div>
+                    <div class="description">Get cached list of discovered devices</div>
+                    <div class="form-group">
+                        <label>Force Scan</label>
+                        <div class="radio-group">
+                            <label><input type="radio" name="force_scan" value="false" checked onchange="toggleTimeout()"> false</label>
+                            <label><input type="radio" name="force_scan" value="true" onchange="toggleTimeout()"> true</label>
+                            <div id="timeout-container" class="timeout-inline">
+                                <label>Timeout (seconds):</label>
+                                <input type="number" id="scan_timeout" value="5" min="1" max="15">
+                            </div>
                         </div>
                     </div>
+                    <button id="btn-get-devices" onclick="getDevices()">Get Devices</button>
                 </div>
-                <button id="btn-get-devices" onclick="getDevices()">Get Devices</button>
+
+                <div class="api-section">
+                    <div class="endpoint"><span class="method post">POST</span> /devices/select</div>
+                    <div class="description">Select device by IP address</div>
+                    <div class="form-group">
+                        <label>Device IP Address</label>
+                        <input type="text" id="select_ip" placeholder="192.168.1.100" value="{{ default_device_ip }}">
+                    </div>
+                    <button id="btn-select-device" onclick="selectDevice()">Select Device</button>
+                    <div id="device-tags" class="tag-container"></div>
+                </div>
+
+                <div class="api-section">
+                    <div class="endpoint"><span class="method get">GET</span> /devices/current</div>
+                    <div class="description">Get currently selected device</div>
+                    <button id="btn-current-device" onclick="getCurrentDevice()">Get Current Device</button>
+                </div>
             </div>
 
-            <div class="api-section">
-                <div class="endpoint">
-                    <span class="method post">POST</span> /devices/select
+            <h2 data-section="playback">Playback Control</h2>
+            <div class="section-group" id="section-playback">
+                <div class="api-section">
+                    <div class="endpoint"><span class="method post">POST</span> /play</div>
+                    <div class="description">Start playback with smart transcoding</div>
+                    <div class="form-group">
+                        <label>Stream URL (optional, uses default if empty)</label>
+                        <input type="text" id="play_url" value="{{ default_stream_url }}" placeholder="http://stream-url.com/radio">
+                    </div>
+                    <button id="btn-play" onclick="play()">Play</button>
+                    <div id="stream-tags" class="tag-container"></div>
                 </div>
-                <div class="description">Select device by IP address</div>
-                <div class="form-group">
-                    <label>Device IP Address</label>
-                    <input type="text" id="select_ip" placeholder="192.168.1.100" value="{{ default_device_ip }}">
+
+                <div class="api-section">
+                    <div class="endpoint"><span class="method post">POST</span> /stop</div>
+                    <div class="description">Stop playback</div>
+                    <button id="btn-stop" onclick="stop()">Stop</button>
                 </div>
-                <button id="btn-select-device" onclick="selectDevice()">Select Device</button>
-                <div id="device-tags" class="tag-container"></div>
             </div>
 
-            <div class="api-section">
-                <div class="endpoint">
-                    <span class="method get">GET</span> /devices/current
+            <h2 data-section="status">Status</h2>
+            <div class="section-group" id="section-status">
+                <div class="api-section">
+                    <div class="endpoint"><span class="method get">GET</span> /status</div>
+                    <div class="description">Get current playback and device status</div>
+                    <button id="btn-status" onclick="getStatus()">Get Status</button>
                 </div>
-                <div class="description">Get currently selected device</div>
-                <button id="btn-current-device" onclick="getCurrentDevice()">Get Current Device</button>
-            </div>
 
-            <h2>Playback Control</h2>
-
-            <div class="api-section">
-                <div class="endpoint">
-                    <span class="method post">POST</span> /play
+                <div class="api-section">
+                    <div class="endpoint"><span class="method get">GET</span> /health</div>
+                    <div class="description">Health check</div>
+                    <button id="btn-health" onclick="getHealth()">Health Check</button>
                 </div>
-                <div class="description">Start playback with smart transcoding</div>
-                <div class="form-group">
-                    <label>Stream URL (optional, uses default if empty)</label>
-                    <input type="text" id="play_url" value="{{ default_stream_url }}" placeholder="http://stream-url.com/radio">
-                </div>
-                <button id="btn-play" onclick="play()">Play</button>
-                <div id="stream-tags" class="tag-container"></div>
-            </div>
-
-            <div class="api-section">
-                <div class="endpoint">
-                    <span class="method post">POST</span> /stop
-                </div>
-                <div class="description">Stop playback</div>
-                <button id="btn-stop" onclick="stop()">Stop</button>
-            </div>
-
-            <h2>Status</h2>
-
-            <div class="api-section">
-                <div class="endpoint">
-                    <span class="method get">GET</span> /status
-                </div>
-                <div class="description">Get current playback and device status</div>
-                <button id="btn-status" onclick="getStatus()">Get Status</button>
-            </div>
-
-            <div class="api-section">
-                <div class="endpoint">
-                    <span class="method get">GET</span> /health
-                </div>
-                <div class="description">Health check</div>
-                <button id="btn-health" onclick="getHealth()">Health Check</button>
             </div>
         </div>
 
@@ -399,7 +452,7 @@
         <div class="right-panel">
             <div class="output-container">
                 <div class="output-header">
-                    <h2>Output</h2>
+                    <h2 style="border:none; cursor:default;">Output</h2>
                     <button class="clear-btn" onclick="clearOutput()">Clear</button>
                 </div>
                 <div id="output">Waiting for requests...</div>
@@ -410,23 +463,16 @@
     <script>
         const output = document.getElementById('output');
 
-        function clearOutput() {
-            output.textContent = 'Output cleared.';
-        }
+        function clearOutput() { output.textContent = 'Output cleared.'; }
 
         function log(message, type = 'info') {
             const timestamp = new Date().toLocaleTimeString();
             const classes = { error: 'error', success: 'success' };
             const className = classes[type] || '';
-
             const div = document.createElement('div');
             div.innerHTML = `<span class="timestamp">[${timestamp}]</span> <span class="${className}">${escapeHtml(message)}</span>`;
             output.appendChild(div);
-
-            // Force scroll after DOM update
-            setTimeout(() => {
-                output.scrollTop = output.scrollHeight;
-            }, 0);
+            setTimeout(() => { output.scrollTop = output.scrollHeight; }, 0);
         }
 
         function escapeHtml(text) {
@@ -435,41 +481,37 @@
         }
 
         async function makeRequest(method, endpoint, button) {
-            // Set loading state
             const originalText = button.textContent;
             button.disabled = true;
             button.textContent = 'Loading...';
+            // Also disable the matching quick-bar button
+            const qbarMap = { 'btn-play': 'qbar-play', 'btn-stop': 'qbar-stop', 'btn-status': 'qbar-status' };
+            const qbarId = qbarMap[button.id];
+            const qbarBtn = qbarId ? document.getElementById(qbarId) : null;
+            if (qbarBtn) qbarBtn.disabled = true;
 
             try {
                 log(`${method} ${endpoint}`, 'info');
-
-                const response = await fetch(endpoint, { method: method });
-
-                // Try to parse JSON
+                const response = await fetch(endpoint, { method });
                 let data;
                 try {
                     data = await response.json();
-                } catch (parseError) {
-                    // Not JSON - likely HTML error page from invalid input
+                } catch {
                     const contentType = response.headers.get('content-type') || 'unknown';
                     log(`Non-JSON response (${response.status}): ${contentType}`, 'info');
                     return;
                 }
-
                 if (response.ok) {
                     log(`Response (${response.status}): ${JSON.stringify(data, null, 2)}`, 'success');
                 } else {
-                    // Check if it's a validation message or actual error
-                    const logType = data.error ? 'error' : 'info';
-                    log(`Response (${response.status}): ${JSON.stringify(data, null, 2)}`, logType);
+                    log(`Response (${response.status}): ${JSON.stringify(data, null, 2)}`, data.error ? 'error' : 'info');
                 }
             } catch (error) {
-                // Real network errors (connection refused, timeout, etc.)
                 log(`Network error: ${error.message}`, 'error');
             } finally {
-                // Restore button state
                 button.disabled = false;
                 button.textContent = originalText;
+                if (qbarBtn) qbarBtn.disabled = false;
             }
         }
 
@@ -477,246 +519,209 @@
             const force = document.querySelector('input[name="force_scan"]:checked').value;
             const timeout = document.getElementById('scan_timeout').value || '5';
             let endpoint = `/devices?force_scan=${encodeURIComponent(force)}`;
-            if (force === 'true') {
-                endpoint += `&timeout=${encodeURIComponent(timeout)}`;
-            }
-            const button = document.getElementById('btn-get-devices');
-            makeRequest('GET', endpoint, button);
+            if (force === 'true') endpoint += `&timeout=${encodeURIComponent(timeout)}`;
+            makeRequest('GET', endpoint, document.getElementById('btn-get-devices'));
         }
 
         function toggleTimeout() {
             const forceScan = document.querySelector('input[name="force_scan"]:checked').value;
-            const timeoutContainer = document.getElementById('timeout-container');
-            if (forceScan === 'true') {
-                timeoutContainer.classList.add('visible');
-            } else {
-                timeoutContainer.classList.remove('visible');
-            }
+            document.getElementById('timeout-container').classList.toggle('visible', forceScan === 'true');
         }
 
         function selectDevice() {
             const ip = document.getElementById('select_ip').value.trim();
-            if (!ip) {
-                log('IP address is required', 'info');
-                return;
-            }
-            const button = document.getElementById('btn-select-device');
-            makeRequest('POST', `/devices/select?ip=${encodeURIComponent(ip)}`, button);
+            if (!ip) { log('IP address is required', 'info'); return; }
+            makeRequest('POST', `/devices/select?ip=${encodeURIComponent(ip)}`, document.getElementById('btn-select-device'));
         }
 
         function getCurrentDevice() {
-            const button = document.getElementById('btn-current-device');
-            makeRequest('GET', '/devices/current', button);
+            makeRequest('GET', '/devices/current', document.getElementById('btn-current-device'));
         }
 
         function play() {
             const url = document.getElementById('play_url').value.trim();
             const endpoint = url ? `/play?streamUrl=${encodeURIComponent(url)}` : '/play';
-            const button = document.getElementById('btn-play');
-            makeRequest('POST', endpoint, button);
+            makeRequest('POST', endpoint, document.getElementById('btn-play'));
         }
 
-        function stop() {
-            const button = document.getElementById('btn-stop');
-            makeRequest('POST', '/stop', button);
-        }
+        function stop()      { makeRequest('POST', '/stop',    document.getElementById('btn-stop')); }
+        function getStatus() { makeRequest('GET',  '/status',  document.getElementById('btn-status')); }
+        function getHealth() { makeRequest('GET',  '/health',  document.getElementById('btn-health')); }
 
-        function getStatus() {
-            const button = document.getElementById('btn-status');
-            makeRequest('GET', '/status', button);
-        }
-
-        function getHealth() {
-            const button = document.getElementById('btn-health');
-            makeRequest('GET', '/health', button);
-        }
-
-        // Load cached devices as tags
+        // ── Tags ──
         async function loadDeviceTags() {
             const container = document.getElementById('device-tags');
             try {
-                const response = await fetch('/devices?force_scan=false');
-                const data = await response.json();
-
-                if (data.devices && data.devices.length > 0) {
-                    container.innerHTML = data.devices.map(device => {
-                        const name = device.friendly_name || 'Unknown';
-                        const ip = device.ip || '';
-                        return `<span class="tag" onclick="setDeviceIp('${ip}')" title="${name}">
-                            <span class="tag-label">${escapeHtml(name.substring(0, 20))}</span>
-                            <span class="tag-value">${ip}</span>
-                        </span>`;
-                    }).join('');
-                } else {
-                    container.innerHTML = '';
-                }
-            } catch (e) {
-                container.innerHTML = '';
-            }
+                const data = await fetch('/devices?force_scan=false').then(r => r.json());
+                container.innerHTML = (data.devices || []).map(device => {
+                    const name = device.friendly_name || 'Unknown';
+                    const ip   = device.ip || '';
+                    return `<span class="tag" onclick="setDeviceIp('${ip}')" title="${name}">
+                        <span class="tag-label">${escapeHtml(name.substring(0, 20))}</span>
+                        <span class="tag-value">${ip}</span>
+                    </span>`;
+                }).join('');
+            } catch { container.innerHTML = ''; }
         }
 
-        // Load cached streams as tags
         async function loadStreamTags() {
             const container = document.getElementById('stream-tags');
             try {
-                const response = await fetch('/streams/cached');
-                const data = await response.json();
+                const data = await fetch('/streams/cached').then(r => r.json());
+                container.innerHTML = (data.streams || []).map(stream => {
+                    const url = stream.url || '';
+                    const format = stream.mime_type || '';
+                    let hostname = url;
+                    try { hostname = new URL(url).hostname; } catch {}
+                    return `<span class="tag" onclick="setStreamUrl('${escapeHtml(url)}')" title="${escapeHtml(url)}">
+                        <span class="tag-label">${escapeHtml(hostname.substring(0, 25))}</span>
+                        <span class="tag-value">${format.replace('audio/', '')}</span>
+                    </span>`;
+                }).join('');
+            } catch { container.innerHTML = ''; }
+        }
 
-                if (data.streams && data.streams.length > 0) {
-                    container.innerHTML = data.streams.map(stream => {
-                        const url = stream.url || '';
-                        const format = stream.mime_type || '';
-                        // Extract hostname from URL for display
-                        let hostname = url;
-                        try {
-                            hostname = new URL(url).hostname;
-                        } catch (e) {}
-                        return `<span class="tag" onclick="setStreamUrl('${escapeHtml(url)}')" title="${escapeHtml(url)}">
-                            <span class="tag-label">${escapeHtml(hostname.substring(0, 25))}</span>
-                            <span class="tag-value">${format.replace('audio/', '')}</span>
-                        </span>`;
-                    }).join('');
+        function setDeviceIp(ip)   { document.getElementById('select_ip').value = ip; }
+        function setStreamUrl(url) { document.getElementById('play_url').value  = url; }
+
+        // ── Mobile accordion ──
+        const ACCORDION_KEY = 'accordionState';
+
+        function saveAccordionState() {
+            const state = {};
+            document.querySelectorAll('h2[data-section]').forEach(h => {
+                state[h.dataset.section] = !h.classList.contains('collapsed');
+            });
+            localStorage.setItem(ACCORDION_KEY, JSON.stringify(state));
+        }
+
+        function loadAccordionState() {
+            try { return JSON.parse(localStorage.getItem(ACCORDION_KEY)) || {}; } catch { return {}; }
+        }
+
+        function collapseSection(heading, group) {
+            group.style.maxHeight = group.scrollHeight + 'px';
+            requestAnimationFrame(() => {
+                group.classList.add('collapsed');
+                group.style.maxHeight = '0';
+            });
+            heading.classList.add('collapsed');
+        }
+
+        function expandSection(heading, group) {
+            group.style.maxHeight = group.scrollHeight + 'px';
+            group.classList.remove('collapsed');
+            heading.classList.remove('collapsed');
+            group.addEventListener('transitionend', () => {
+                if (!group.classList.contains('collapsed')) group.style.maxHeight = 'none';
+            }, { once: true });
+        }
+
+        function initAccordions() {
+            const isMobile = () => window.innerWidth < 768;
+            const saved = loadAccordionState();
+
+            document.querySelectorAll('h2[data-section]').forEach(heading => {
+                const section = heading.dataset.section;
+                const group   = document.getElementById('section-' + section);
+                if (!group) return;
+
+                // Restore saved state (default: expanded)
+                if (isMobile() && saved[section] === false) {
+                    group.classList.add('collapsed');
+                    group.style.maxHeight = '0';
+                    heading.classList.add('collapsed');
                 } else {
-                    container.innerHTML = '';
+                    group.style.maxHeight = 'none';
                 }
-            } catch (e) {
-                container.innerHTML = '';
-            }
+
+                heading.addEventListener('click', () => {
+                    if (!isMobile()) return;
+                    if (group.classList.contains('collapsed')) {
+                        expandSection(heading, group);
+                    } else {
+                        collapseSection(heading, group);
+                    }
+                    saveAccordionState();
+                });
+            });
         }
 
-        // Set device IP from tag click
-        function setDeviceIp(ip) {
-            document.getElementById('select_ip').value = ip;
-        }
-
-        // Set stream URL from tag click
-        function setStreamUrl(url) {
-            document.getElementById('play_url').value = url;
-        }
-
-        // Enter key handling for input fields
-        document.addEventListener('DOMContentLoaded', function() {
-            // Load tags on page load
+        // ── Enter key shortcuts ──
+        document.addEventListener('DOMContentLoaded', () => {
             loadDeviceTags();
             loadStreamTags();
+            initAccordions();
 
-            // Select device IP input
-            const selectIpInput = document.getElementById('select_ip');
-            if (selectIpInput) {
-                selectIpInput.addEventListener('keypress', function(e) {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        selectDevice();
-                    }
-                });
-            }
-
-            // Play URL input
-            const playUrlInput = document.getElementById('play_url');
-            if (playUrlInput) {
-                playUrlInput.addEventListener('keypress', function(e) {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        play();
-                    }
-                });
-            }
-
-            // Scan timeout input
-            const scanTimeoutInput = document.getElementById('scan_timeout');
-            if (scanTimeoutInput) {
-                scanTimeoutInput.addEventListener('keypress', function(e) {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        getDevices();
-                    }
-                });
-            }
+            document.getElementById('select_ip').addEventListener('keypress', e => {
+                if (e.key === 'Enter') { e.preventDefault(); selectDevice(); }
+            });
+            document.getElementById('play_url').addEventListener('keypress', e => {
+                if (e.key === 'Enter') { e.preventDefault(); play(); }
+            });
+            document.getElementById('scan_timeout').addEventListener('keypress', e => {
+                if (e.key === 'Enter') { e.preventDefault(); getDevices(); }
+            });
         });
 
-        // Resizable splitter
+        // ── Desktop resizable splitter ──
         (function() {
-            const splitter = document.getElementById('splitter');
-            const leftPanel = document.querySelector('.left-panel');
+            const splitter   = document.getElementById('splitter');
+            const leftPanel  = document.querySelector('.left-panel');
             const rightPanel = document.querySelector('.right-panel');
-            const container = document.querySelector('.container');
+            const container  = document.querySelector('.container');
+            let isResizing   = false;
+            const GRAB_MARGIN = 10;
 
-            let isResizing = false;
-            const GRAB_MARGIN = 10; // px margin around splitter for easier grabbing
-
-            // Load saved position from localStorage
             function loadPosition() {
-                const savedRatio = localStorage.getItem('splitterPosition');
-                if (savedRatio) {
-                    const ratio = parseFloat(savedRatio);
-                    leftPanel.style.flex = `${ratio} 0 0`;
+                const saved = localStorage.getItem('splitterPosition');
+                if (saved) {
+                    const ratio = parseFloat(saved);
+                    leftPanel.style.flex  = `${ratio} 0 0`;
                     rightPanel.style.flex = `${1 - ratio} 0 0`;
                 }
             }
 
-            // Save position to localStorage
-            function savePosition(leftRatio) {
-                localStorage.setItem('splitterPosition', leftRatio.toString());
-            }
-
-            // Check if mouse is near splitter (with margin)
             function isNearSplitter(clientX) {
-                const splitterRect = splitter.getBoundingClientRect();
-                return clientX >= splitterRect.left - GRAB_MARGIN &&
-                       clientX <= splitterRect.right + GRAB_MARGIN;
+                const r = splitter.getBoundingClientRect();
+                return clientX >= r.left - GRAB_MARGIN && clientX <= r.right + GRAB_MARGIN;
             }
 
-            // Initialize with saved position
             loadPosition();
 
-            // Start dragging on splitter or near it
-            document.addEventListener('mousedown', function(e) {
+            document.addEventListener('mousedown', e => {
                 if (isNearSplitter(e.clientX)) {
                     isResizing = true;
                     splitter.classList.add('dragging');
-                    document.body.style.cursor = 'col-resize';
+                    document.body.style.cursor     = 'col-resize';
                     document.body.style.userSelect = 'none';
                     e.preventDefault();
                 }
             });
 
-            // Update cursor when hovering near splitter
-            document.addEventListener('mousemove', function(e) {
+            document.addEventListener('mousemove', e => {
                 if (isResizing) {
-                    const containerRect = container.getBoundingClientRect();
-                    const leftWidth = e.clientX - containerRect.left;
-                    const totalWidth = containerRect.width;
-
-                    // Min/max constraints (20% - 80%)
-                    const minWidth = totalWidth * 0.2;
-                    const maxWidth = totalWidth * 0.8;
-
-                    if (leftWidth >= minWidth && leftWidth <= maxWidth) {
-                        const leftFlex = leftWidth / totalWidth;
-                        const rightFlex = (totalWidth - leftWidth - 5) / totalWidth; // 5px for splitter
-
-                        leftPanel.style.flex = `${leftFlex} 0 0`;
-                        rightPanel.style.flex = `${rightFlex} 0 0`;
+                    const rect      = container.getBoundingClientRect();
+                    const leftWidth = e.clientX - rect.left;
+                    const total     = rect.width;
+                    const min = total * 0.2, max = total * 0.8;
+                    if (leftWidth >= min && leftWidth <= max) {
+                        leftPanel.style.flex  = `${leftWidth / total} 0 0`;
+                        rightPanel.style.flex = `${(total - leftWidth - 5) / total} 0 0`;
                     }
-                } else if (isNearSplitter(e.clientX)) {
-                    document.body.style.cursor = 'col-resize';
                 } else {
-                    document.body.style.cursor = '';
+                    document.body.style.cursor = isNearSplitter(e.clientX) ? 'col-resize' : '';
                 }
             });
 
-            document.addEventListener('mouseup', function() {
+            document.addEventListener('mouseup', () => {
                 if (isResizing) {
                     isResizing = false;
                     splitter.classList.remove('dragging');
-                    document.body.style.cursor = '';
+                    document.body.style.cursor     = '';
                     document.body.style.userSelect = '';
-
-                    // Save position
-                    const containerRect = container.getBoundingClientRect();
-                    const leftRect = leftPanel.getBoundingClientRect();
-                    const leftRatio = leftRect.width / containerRect.width;
-                    savePosition(leftRatio);
+                    const ratio = leftPanel.getBoundingClientRect().width / container.getBoundingClientRect().width;
+                    localStorage.setItem('splitterPosition', ratio.toString());
                 }
             });
         })();

@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [v0.5] - 2026-05-28
 
 ### Changed
-- **Auto-versioning**: Version is now baked into the Docker image at build time via `APP_VERSION` build arg and env var. `MAJOR.MINOR` comes from a git tag (e.g. `v0.5.0`), patch number is the commit count since that tag. To bump `MAJOR.MINOR`, create a new tag on the desired commit.
+- **Auto-versioning**: Version is now baked into the Docker image at build time via `APP_VERSION` build arg and env var. `MAJOR.MINOR` comes from a git tag (e.g. `v0.5`), patch number is the commit count since that tag. To bump `MAJOR.MINOR`, create a new tag on the desired commit (e.g. `git tag v0.6 <commit>`).
 
 ## [v0.4] - 2026-01-17
 
