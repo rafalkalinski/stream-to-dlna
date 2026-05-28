@@ -141,9 +141,9 @@ server:
   port: 5000
 
 streaming:
-  port: 8080
+  internal_port: 8080
   mp3_bitrate: "128k"
-  # public_url: "http://radio.yourdomain.local"
+  # external_url: "http://radio.yourdomain.local"
 
 # Persistent storage (optional, defaults shown)
 storage:

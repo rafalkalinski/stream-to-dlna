@@ -21,16 +21,16 @@ server:
 
 # Streaming settings
 streaming:
-  # Port for serving transcoded MP3 stream
-  port: 8080
+  # Internal port for serving transcoded MP3 stream inside the container
+  internal_port: 8080
   # MP3 encoding bitrate (e.g., 128k, 192k, 256k)
   mp3_bitrate: "128k"
-  # Public URL for stream (optional, overrides auto-detection)
+  # External URL for stream (optional, overrides auto-detection)
   # Use this if behind reverse proxy (e.g., Nginx Proxy Manager)
   # Note: Do NOT include /stream.mp3 - it will be appended automatically
   # Supports both HTTP and HTTPS
-  # public_url: "http://radio.yourdomain.com"
-  # public_url: "https://radio.yourdomain.com"
+  # external_url: "http://radio.yourdomain.com"
+  # external_url: "https://radio.yourdomain.com"
 
 # Advanced DLNA settings (optional, use defaults if not specified)
 # dlna_advanced:
