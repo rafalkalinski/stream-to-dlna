@@ -57,8 +57,8 @@ class Config:
 
     @property
     def stream_port(self) -> int:
-        """Get streaming server port."""
-        return self.get('streaming.port', 8080)
+        """Get streaming server internal port."""
+        return self.get('streaming.internal_port', 8080)
 
     @property
     def mp3_bitrate(self) -> str:
@@ -66,9 +66,9 @@ class Config:
         return self.get('streaming.mp3_bitrate', '128k')
 
     @property
-    def stream_public_url(self) -> str:
-        """Get public URL for stream (optional, overrides auto-detection)."""
-        return self.get('streaming.public_url', '')
+    def stream_external_url(self) -> str:
+        """Get external URL for stream (optional, overrides auto-detection)."""
+        return self.get('streaming.external_url', '')
 
     # Timeout settings
     @property
