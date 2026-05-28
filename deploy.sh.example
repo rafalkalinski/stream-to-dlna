@@ -1,33 +1,94 @@
 #!/bin/bash
+#
+# deploy.sh.example — starting point for your own deploy script
+#
+# Copy to deploy.sh, adjust COMPOSE_DEPLOY to point at your deployment
+# compose file, then use:
+#
+#   ./deploy.sh -b      # pull latest code and build Docker image
+#   ./deploy.sh -d      # stop old container and start new one
+#   ./deploy.sh -b -d   # build then deploy in one go
+#
+# Version is calculated automatically from git tags (vMAJOR.MINOR format)
+# and baked into the image at build time as APP_VERSION.
+# To bump the version: git tag v0.6 <commit>
 
-# Enable Docker BuildKit for faster builds and advanced features
 export DOCKER_BUILDKIT=1
 export COMPOSE_DOCKER_CLI_BUILD=1
 
-# Update the local repository with changes from the remote server
-echo "Running git pull..."
-git pull
+# Calculate version from git tags: vMAJOR.MINOR tag + commits since = patch
+_desc=$(git describe --tags --long 2>/dev/null || echo "v0.0-0-g0000000")
+_major_minor=$(echo "$_desc" | sed 's/-[0-9]*-g[0-9a-f]*$//' | sed 's/^v//')
+_patch=$(echo "$_desc" | sed 's/.*-\([0-9]*\)-g[0-9a-f]*$/\1/')
+APP_VERSION="${_major_minor}.${_patch}"
+export APP_VERSION
 
-# Check if the previous command was successful
-if [ $? -eq 0 ]; then
-    echo "Git pull successful. Building Docker image..."
-    echo "BuildKit: enabled (faster builds with layer caching)"
-    echo ""
+# Compose file for building the image (uses Dockerfile in this directory)
+COMPOSE_BUILD="docker-compose.yaml"
+# Compose file for deployment — create your own with correct volume paths,
+# network settings, and using the locally built image (no build: section)
+COMPOSE_DEPLOY="docker-compose.deploy.yaml"
+CONTAINER="dlna-radio-streamer"
 
-    # Build the docker images
-    # BuildKit will cache apt and pip downloads for much faster rebuilds
-    sudo docker compose build
+usage() {
+    echo "Usage: $0 [-b] [-d]"
+    echo "  -b  Build Docker image (git pull + docker compose build)"
+    echo "  -d  Deploy container (docker compose up -d)"
+    echo "Both flags can be combined: $0 -b -d"
+    exit 1
+}
 
-    if [ $? -eq 0 ]; then
-        echo ""
-        echo "Build successful!"
+DO_BUILD=0
+DO_DEPLOY=0
+
+while getopts "bd" opt; do
+    case $opt in
+        b) DO_BUILD=1 ;;
+        d) DO_DEPLOY=1 ;;
+        *) usage ;;
+    esac
+done
+
+if [ $DO_BUILD -eq 0 ] && [ $DO_DEPLOY -eq 0 ]; then
+    usage
+fi
+
+if [ $DO_BUILD -eq 1 ]; then
+    echo "Running git pull..."
+    if git rev-parse --abbrev-ref --symbolic-full-name @{u} &>/dev/null; then
+        git pull
+        if [ $? -ne 0 ]; then
+            echo "Git pull failed. Aborting."
+            exit 1
+        fi
     else
+        echo "No upstream branch — skipping git pull."
+    fi
+
+    echo ""
+    echo "Building Docker image (BuildKit enabled)..."
+    echo "Version: $APP_VERSION"
+    docker compose -f "$COMPOSE_BUILD" build --build-arg APP_VERSION="$APP_VERSION"
+    if [ $? -ne 0 ]; then
         echo "Docker build failed!"
         exit 1
     fi
-else
-    echo "Git pull failed. Aborting build."
-    exit 1
+    echo "Build successful!"
 fi
 
-echo "Process completed."
+if [ $DO_DEPLOY -eq 1 ]; then
+    echo ""
+    echo "Deploying container: $CONTAINER..."
+    # Stop and remove before up in case the container was started by a different
+    # compose project — avoids container name conflicts
+    docker stop "$CONTAINER" 2>/dev/null || true
+    docker rm "$CONTAINER" 2>/dev/null || true
+    docker compose -f "$COMPOSE_DEPLOY" up -d
+    if [ $? -ne 0 ]; then
+        echo "Deployment failed!"
+        exit 1
+    fi
+    echo "Deployment successful!"
+    echo ""
+    docker ps --filter "name=$CONTAINER" --format "table {{.Names}}\t{{.Image}}\t{{.Status}}"
+fi
