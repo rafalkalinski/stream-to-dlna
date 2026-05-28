@@ -1,10 +1,12 @@
 # syntax=docker/dockerfile:1
 FROM python:3.14-slim
 
-# Install FFmpeg from apt (static builds have SSL compatibility issues)
+# Install FFmpeg and apply all available security patches
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update && apt-get install -y --no-install-recommends ffmpeg && \
+    apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y --no-install-recommends ffmpeg && \
     rm -rf /tmp/* /var/tmp/*
 
 # Set working directory
