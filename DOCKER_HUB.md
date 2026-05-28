@@ -102,7 +102,7 @@ curl -X POST http://localhost:5000/stop
 
 ## Version History
 
-- **v0.5** - Auto-versioning from git tags, version baked into Docker image at build time
+- **v0.5** - Mobile-first GUI, DLNA compliance fixes for Samsung/strict renderers, auto-versioning from git tags
 - **v0.4** - Default device auto-select, stream format caching, enhanced AAC detection
 - **v0.3** - Security features (API auth, rate limiting), reliability improvements
 - **v0.2** - Development console, testing, device caching
