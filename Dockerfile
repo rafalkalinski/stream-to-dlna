@@ -21,6 +21,10 @@ COPY app/ ./app/
 # Copy example config as default (will be overridden by volume mount)
 COPY config.example.yaml ./config.yaml
 
+# Version injected at build time by deploy.sh (MAJOR.MINOR from VERSION file + git commit count as patch)
+ARG APP_VERSION=0.0.0
+ENV APP_VERSION=${APP_VERSION}
+
 # Expose API port and streaming port
 EXPOSE 5000 8080
 
