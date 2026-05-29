@@ -62,7 +62,7 @@ class StreamHandler(BaseHTTPRequestHandler):
         self.send_header('transferMode.dlna.org', 'Streaming')
         self.send_header(
             'contentFeatures.dlna.org',
-            'DLNA.ORG_PN=MP3;DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=ED100000000000000000000000000000'
+            'DLNA.ORG_PN=MP3;DLNA.ORG_OP=00;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=ED100000000000000000000000000000'
         )
 
     def do_HEAD(self):
