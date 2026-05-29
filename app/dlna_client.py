@@ -81,9 +81,9 @@ class DLNAClient:
         """
         # Map MIME type to DLNA profile info
         profile_map = {
-            'audio/mpeg': 'DLNA.ORG_PN=MP3;DLNA.ORG_OP=00;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=ED100000000000000000000000000000',
-            'audio/mp3':  'DLNA.ORG_PN=MP3;DLNA.ORG_OP=00;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=ED100000000000000000000000000000',
-            'audio/flac': 'DLNA.ORG_PN=FLAC;DLNA.ORG_OP=00;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=ED100000000000000000000000000000',
+            'audio/mpeg': 'DLNA.ORG_PN=MP3;DLNA.ORG_OP=00;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=8D100000000000000000000000000000',
+            'audio/mp3':  'DLNA.ORG_PN=MP3;DLNA.ORG_OP=00;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=8D100000000000000000000000000000',
+            'audio/flac': 'DLNA.ORG_PN=FLAC;DLNA.ORG_OP=00;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=8D100000000000000000000000000000',
         }
         dlna_profile = profile_map.get(mime_type, '*')
         protocol_info = f'http-get:*:{mime_type}:{dlna_profile}'
