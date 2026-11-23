@@ -4,11 +4,16 @@ on:
   push:
     # Trigger the workflow on pushes to the main branches
     branches: [ "master", "main" ]
-    # Trigger on version tags (e.g., v1.0.1)
-    tags: [ 'v*.*.*' ]
+    # Trigger on version tags (e.g., v0.5, v1.0.1)
+    tags: [ 'v*' ]
   pull_request:
     # Build (but don't push) for pull requests to verify the Dockerfile
     branches: [ "master", "main" ]
+  schedule:
+    # Weekly rebuild (Monday 04:00 UTC) to pick up base image / Debian security patches
+    - cron: '0 4 * * 1'
+  # Allow manual rebuild from the Actions tab
+  workflow_dispatch:
 
 jobs:
   build:
@@ -16,6 +21,19 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # Full history + tags needed by git describe for APP_VERSION
+          fetch-depth: 0
+
+      - name: Compute APP_VERSION
+        # Same scheme as deploy.sh: MAJOR.MINOR from latest vX.Y tag, patch = commits since tag
+        id: version
+        run: |
+          desc=$(git describe --tags --long --match 'v*' 2>/dev/null || echo "v0.0-0-g0000000")
+          major_minor=$(echo "$desc" | sed 's/-[0-9]*-g[0-9a-f]*$//' | sed 's/^v//')
+          patch=$(echo "$desc" | sed 's/.*-\([0-9]*\)-g[0-9a-f]*$/\1/')
+          echo "app_version=${major_minor}.${patch}" >> "$GITHUB_OUTPUT"
+          echo "APP_VERSION=${major_minor}.${patch}"
 
       - name: Set up Docker Buildx
         # Configures the advanced Docker build engine
@@ -37,12 +55,18 @@ jobs:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/stream-to-dlna
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
-            type=semver,pattern={{version}}
+            type=ref,event=tag
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
+          # Always pull the newest base image (security patches)
+          pull: true
+          # Scheduled/manual runs rebuild from scratch so apt-get upgrade actually runs
+          no-cache: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+          build-args: |
+            APP_VERSION=${{ steps.version.outputs.app_version }}
           # Only push if it's not a pull request
           push: ${{ github.event_name != 'pull_request' }}
           # Removed platforms line to default to linux/amd64 only
