@@ -402,7 +402,9 @@
         'use strict';
 
         const DEFAULT_STREAM = {{ default_stream_url | tojson }};
-        const POLL_MS = 5000;
+        const POLL_MS = 5000;          // fallback polling when the event stream is down
+        const POLL_LIVE_MS = 30000;    // safety-net polling while the event stream is connected
+        const EVENTS_RETRY_MS = 30000; // reconnect delay after the server refused the stream (e.g. 503)
         const LOG_LIMIT = 100;
 
         const $ = (id) => document.getElementById(id);
@@ -554,11 +556,27 @@
             $('np-hint').textContent = !s || showStop ? '' : !hasDevice ? 'Pick a speaker to start.' : !state.selectedUrl ? 'Pick a station to start.' : '';
         }
 
-        async function refreshStatus() {
-            const res = await api('GET', '/status', { quiet: true });
-            if (res.ok) state.status = res.data;
+        function applyStatus(data) {
+            state.status = data;
+            // Another client may have switched the speaker
+            const cur = data && data.current_device;
+            if (cur && cur.ip && cur.ip !== state.currentIp) {
+                state.currentIp = cur.ip;
+                state.currentName = cur.friendly_name;
+                if (!state.devices.some(d => d.ip === cur.ip)) state.devices.unshift(cur);
+                renderDevices();
+            }
+            // A stream started elsewhere may not be in our station list yet
+            const url = data && data.streaming && data.stream ? data.stream.url : null;
+            if (url && !state.stations.some(st => st.url === url)) loadStations();
             renderNowPlaying();
             renderStations();
+        }
+
+        async function refreshStatus() {
+            const res = await api('GET', '/status', { quiet: true });
+            if (res.ok) applyStatus(res.data);
+            else renderNowPlaying();
         }
 
         async function play(url) {
@@ -748,15 +766,55 @@
             }
         });
 
-        // ── Polling ─────────────────────────────────────────────
+        // ── Live updates (Server-Sent Events) with polling fallback ──
         let timer = null;
+        let events = null;
+        let eventsLive = false;
+        let retryTimer = null;
+
         function startPolling() {
             clearInterval(timer);
-            timer = setInterval(() => { if (!state.busy) refreshStatus(); }, POLL_MS);
+            timer = setInterval(() => { if (!state.busy) refreshStatus(); }, eventsLive ? POLL_LIVE_MS : POLL_MS);
         }
+
+        function connectEvents() {
+            if (!window.EventSource || events || document.hidden) return;
+            clearTimeout(retryTimer);
+            events = new EventSource('/events');
+            events.addEventListener('open', () => { eventsLive = true; startPolling(); });
+            events.addEventListener('status', (e) => {
+                try { applyStatus(JSON.parse(e.data)); } catch {}
+            });
+            events.addEventListener('devices', (e) => {
+                try {
+                    state.devices = JSON.parse(e.data).devices || [];
+                    if (state.currentIp && !state.devices.some(d => d.ip === state.currentIp)) {
+                        state.devices.unshift({ ip: state.currentIp, friendly_name: state.currentName });
+                    }
+                    renderDevices();
+                } catch {}
+            });
+            events.addEventListener('error', () => {
+                // The browser reconnects on its own after network errors; while it does, poll.
+                if (eventsLive) { eventsLive = false; startPolling(); }
+                if (events && events.readyState === EventSource.CLOSED) {
+                    // Server refused the stream (e.g. too many clients) - retry later
+                    events = null;
+                    retryTimer = setTimeout(connectEvents, EVENTS_RETRY_MS);
+                }
+            });
+        }
+
+        function disconnectEvents() {
+            clearTimeout(retryTimer);
+            if (events) { events.close(); events = null; }
+            eventsLive = false;
+        }
+
+        // Hidden tabs release their event stream (each one holds a server thread)
         document.addEventListener('visibilitychange', () => {
-            if (document.hidden) { clearInterval(timer); }
-            else { refreshStatus(); startPolling(); }
+            if (document.hidden) { disconnectEvents(); clearInterval(timer); }
+            else { refreshStatus(); connectEvents(); startPolling(); }
         });
 
         // Remember whether the log is expanded
@@ -768,6 +826,7 @@
         loadDevices();
         loadStations();
         refreshStatus();
+        connectEvents();
         startPolling();
     })();
     </script>

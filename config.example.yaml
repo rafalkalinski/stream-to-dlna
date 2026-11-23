@@ -67,7 +67,8 @@ security:
 
 # Performance settings
 # ADVANCED: Do not modify unless you understand the implications
-# Note: Gunicorn runs with 1 worker / 4 threads (set in the Dockerfile CMD).
+# Note: Gunicorn runs with 1 worker / 16 threads (set in the Dockerfile CMD).
+# Each open web player keeps one thread busy with its live event stream (/events, max 10).
 # A single worker is required - the in-process streaming server and state
 # must not be shared between processes.
 performance:

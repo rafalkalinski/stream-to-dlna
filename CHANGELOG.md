@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- **Live updates**: new `GET /events` Server-Sent Events stream; the web player now updates instantly when playback is started/stopped or the speaker changes from another device. A single background monitor queries the speaker (~3 s) for all connected clients instead of each browser polling it. Falls back to polling if the stream is unavailable.
+
+### Changed
+- Gunicorn threads raised from 4 to 16 (each open player holds one for its event stream; max 10 streams)
+
 ## [v0.6.0] - 2026-11-23
 
 ### Added

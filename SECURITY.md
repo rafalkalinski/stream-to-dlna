@@ -193,7 +193,7 @@ chmod 700 ./data
 
 ### Medium: Gunicorn Configuration
 
-Gunicorn runs with **1 worker and 4 threads**, set in the Dockerfile `CMD`. Do not increase the worker count in a custom image — the streaming server and playback state are in-process and would be split across workers.
+Gunicorn runs with **1 worker and 16 threads**, set in the Dockerfile `CMD`. Up to 10 threads can be held by live event streams (`/events`); further clients get `503` and fall back to polling. Do not increase the worker count in a custom image — the streaming server and playback state are in-process and would be split across workers.
 
 ### Medium: Stream URL Validation
 

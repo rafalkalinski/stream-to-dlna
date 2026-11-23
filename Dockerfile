@@ -33,4 +33,4 @@ EXPOSE 5000 8080
 # Run the application with gunicorn
 # CRITICAL: --workers MUST be 1 - the streaming server and playback state live
 # in-process and must not be split across workers
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "4", "--timeout", "120", "app.main:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "16", "--timeout", "120", "app.main:app"]
