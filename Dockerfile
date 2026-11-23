@@ -23,7 +23,7 @@ COPY app/ ./app/
 # Copy example config as default (will be overridden by volume mount)
 COPY config.example.yaml ./config.yaml
 
-# Version injected at build time by CI / deploy.sh (MAJOR.MINOR from latest vX.Y git tag + commits since as patch)
+# Version injected at build time by CI / make / deploy.sh (see scripts/version.sh)
 ARG APP_VERSION=0.0.0
 ENV APP_VERSION=${APP_VERSION}
 

@@ -1,7 +1,7 @@
 .PHONY: help venv install install-dev test test-unit test-integration coverage lint lint-fix format format-check security type-check all-checks docker-build docker-run docker-test clean
 
-# Version from git tags (same scheme as CI and deploy.sh): vMAJOR.MINOR tag + commits since
-APP_VERSION ?= $(or $(shell git describe --tags --long --match 'v*' 2>/dev/null | sed -E 's/^v//; s/-([0-9]+)-g[0-9a-f]+$$/.\1/'),0.0.0)
+# Version from git tags (same scheme as CI and deploy.sh) - see scripts/version.sh
+APP_VERSION ?= $(shell scripts/version.sh)
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'

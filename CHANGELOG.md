@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [v0.6.0] - 2026-11-23
 
 ### Added
 - **New web player GUI** replacing the API dev console: now playing card with live status, speaker picker with scan / add by IP, station list, activity log panel with raw API responses, API key setting, light/dark theme
@@ -15,6 +15,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - **CI / Docker image**: `latest` is rebuilt monthly (and on demand) from a fresh base image without layer cache, so Debian security patches are picked up without code changes; image now carries the real `APP_VERSION`; `vX.Y` tags are published as image tags
 - **Config**: removed unused `performance.gunicorn_workers` / `gunicorn_threads` and `dlna_advanced` options — Gunicorn is fixed at 1 worker / 4 threads in the Dockerfile
+- **Versioning**: `scripts/version.sh` is the single source of the version for CI, `make` and `deploy.sh`; `PATCH` now counts changes merged into `main` (first-parent commits) since the `vX.Y` tag, so each merge bumps it by one
 - **Dev tooling**: updated dev dependencies (pytest 9, ruff, black, mypy, bandit), migrated ruff config to `[tool.ruff.lint]`, removed unused test deps and markers; `make docker-build`/`docker-test` now pass `APP_VERSION`
 - **Docs**: README quick start uses the Docker Hub image, corrected build/deploy instructions, project structure, rate-limiting and API key notes; TESTING.md matches the actual test suite; removed obsolete `.env.example`
 
