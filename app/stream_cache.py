@@ -3,7 +3,6 @@
 import hashlib
 import json
 import logging
-import os
 import time
 from pathlib import Path
 
@@ -28,7 +27,7 @@ class StreamFormatCache:
         """
         self.data_dir = Path(data_dir)
         self.ttl = ttl
-        self.cache_file = self.data_dir / 'stream_format_cache.json'
+        self.cache_file = self.data_dir / "stream_format_cache.json"
         self.cache = {}
         self._ensure_data_dir()
         self._load_cache()
@@ -48,7 +47,7 @@ class StreamFormatCache:
             return
 
         try:
-            with open(self.cache_file, 'r') as f:
+            with open(self.cache_file) as f:
                 self.cache = json.load(f)
             logger.info(f"Loaded stream format cache with {len(self.cache)} entries")
         except Exception as e:
@@ -61,7 +60,7 @@ class StreamFormatCache:
             # Clean expired entries before saving
             self._cleanup_expired()
 
-            with open(self.cache_file, 'w') as f:
+            with open(self.cache_file, "w") as f:
                 json.dump(self.cache, f, indent=2)
             logger.debug(f"Saved stream format cache ({len(self.cache)} entries)")
         except Exception as e:
@@ -71,8 +70,7 @@ class StreamFormatCache:
         """Remove expired cache entries."""
         now = time.time()
         expired_keys = [
-            key for key, entry in self.cache.items()
-            if now - entry.get('timestamp', 0) > self.ttl
+            key for key, entry in self.cache.items() if now - entry.get("timestamp", 0) > self.ttl
         ]
 
         for key in expired_keys:
@@ -93,7 +91,7 @@ class StreamFormatCache:
         Returns:
             Cache key string
         """
-        return hashlib.sha256(url.encode('utf-8')).hexdigest()[:16]
+        return hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
 
     def get(self, url: str) -> dict | None:
         """
@@ -113,15 +111,17 @@ class StreamFormatCache:
 
         # Check if expired
         now = time.time()
-        if now - entry.get('timestamp', 0) > self.ttl:
+        if now - entry.get("timestamp", 0) > self.ttl:
             logger.debug(f"Cache entry expired for URL hash {key}")
             del self.cache[key]
             return None
 
-        logger.info(f"Cache HIT for stream format: {entry.get('mime_type')} (age: {int(now - entry.get('timestamp', 0))}s)")
+        logger.info(
+            f"Cache HIT for stream format: {entry.get('mime_type')} (age: {int(now - entry.get('timestamp', 0))}s)"
+        )
         return entry
 
-    def set(self, url: str, mime_type: str, detection_method: str = 'head'):
+    def set(self, url: str, mime_type: str, detection_method: str = "head"):
         """
         Cache stream format information.
 
@@ -133,10 +133,10 @@ class StreamFormatCache:
         key = self._get_cache_key(url)
 
         entry = {
-            'url': url,  # Store full URL for debugging (consider privacy!)
-            'mime_type': mime_type,
-            'detection_method': detection_method,
-            'timestamp': time.time()
+            "url": url,  # Store full URL for debugging (consider privacy!)
+            "mime_type": mime_type,
+            "detection_method": detection_method,
+            "timestamp": time.time(),
         }
 
         self.cache[key] = entry

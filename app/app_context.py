@@ -2,7 +2,6 @@
 
 import logging
 from threading import RLock
-from typing import Any
 
 from app.config import Config
 from app.device_manager import DeviceManager

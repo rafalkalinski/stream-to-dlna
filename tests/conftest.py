@@ -1,6 +1,5 @@
 """Pytest configuration and shared fixtures."""
 
-
 import pytest
 
 from app.device_manager import DeviceManager
@@ -10,9 +9,11 @@ from app.main import app as flask_app
 @pytest.fixture
 def app():
     """Create Flask app for testing."""
-    flask_app.config.update({
-        "TESTING": True,
-    })
+    flask_app.config.update(
+        {
+            "TESTING": True,
+        }
+    )
     yield flask_app
 
 
@@ -39,21 +40,21 @@ def device_manager(tmp_state_file):
 def sample_device():
     """Sample device data."""
     return {
-        'id': 'uuid:12345678-1234-1234-1234-123456789abc',
-        'friendly_name': 'Test Device',
-        'manufacturer': 'Test Manufacturer',
-        'model_name': 'Test Model',
-        'ip': '192.168.1.100',
-        'port': 8080,
-        'control_url': 'http://192.168.1.100:8080/AVTransport/ctrl',
-        'connection_manager_url': 'http://192.168.1.100:8080/ConnectionManager/ctrl',
-        'capabilities': {
-            'supports_mp3': True,
-            'supports_aac': False,
-            'supports_flac': False,
-            'supports_wav': False,
-            'supports_ogg': False,
-        }
+        "id": "uuid:12345678-1234-1234-1234-123456789abc",
+        "friendly_name": "Test Device",
+        "manufacturer": "Test Manufacturer",
+        "model_name": "Test Model",
+        "ip": "192.168.1.100",
+        "port": 8080,
+        "control_url": "http://192.168.1.100:8080/AVTransport/ctrl",
+        "connection_manager_url": "http://192.168.1.100:8080/ConnectionManager/ctrl",
+        "capabilities": {
+            "supports_mp3": True,
+            "supports_aac": False,
+            "supports_flac": False,
+            "supports_wav": False,
+            "supports_ogg": False,
+        },
     }
 
 

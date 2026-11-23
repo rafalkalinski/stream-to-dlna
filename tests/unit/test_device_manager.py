@@ -26,8 +26,8 @@ class TestDeviceManager:
         # Verify saved to disk
         with open(tmp_state_file) as f:
             data = json.load(f)
-            assert data['current_device']['id'] == sample_device['id']
-            assert data['current_device']['friendly_name'] == sample_device['friendly_name']
+            assert data["current_device"]["id"] == sample_device["id"]
+            assert data["current_device"]["friendly_name"] == sample_device["friendly_name"]
 
     def test_get_current_device_returns_copy(self, device_manager, sample_device):
         """get_current_device returns copy, not reference."""
@@ -37,11 +37,11 @@ class TestDeviceManager:
         device2 = device_manager.get_current_device()
 
         # Modify copy
-        device1['friendly_name'] = 'Modified'
+        device1["friendly_name"] = "Modified"
 
         # Original should be unchanged
-        assert device2['friendly_name'] == 'Test Device'
-        assert device_manager.current_device['friendly_name'] == 'Test Device'
+        assert device2["friendly_name"] == "Test Device"
+        assert device_manager.current_device["friendly_name"] == "Test Device"
 
     def test_clear_device(self, device_manager, sample_device, tmp_state_file):
         """Clear device removes it from state."""
@@ -54,7 +54,7 @@ class TestDeviceManager:
         # Verify saved to disk
         with open(tmp_state_file) as f:
             data = json.load(f)
-            assert data['current_device'] is None
+            assert data["current_device"] is None
 
     def test_has_device(self, device_manager, sample_device):
         """has_device returns correct status."""
@@ -68,7 +68,7 @@ class TestDeviceManager:
 
     def test_update_device_cache(self, device_manager, sample_device):
         """Update device cache with list of devices."""
-        devices = [sample_device, {**sample_device, 'id': 'uuid:different', 'ip': '192.168.1.101'}]
+        devices = [sample_device, {**sample_device, "id": "uuid:different", "ip": "192.168.1.101"}]
 
         device_manager.update_device_cache(devices)
 
@@ -82,7 +82,7 @@ class TestDeviceManager:
 
         cached = device_manager.get_cached_devices()
         assert len(cached) == 1
-        assert cached[0]['id'] == sample_device['id']
+        assert cached[0]["id"] == sample_device["id"]
 
     def test_get_cache_age(self, device_manager, sample_device):
         """Calculate cache age in seconds."""
@@ -100,27 +100,27 @@ class TestDeviceManager:
         """Find device in cache by IP address."""
         device_manager.update_device_cache([sample_device])
 
-        found = device_manager.find_device_in_cache(ip='192.168.1.100')
+        found = device_manager.find_device_in_cache(ip="192.168.1.100")
         assert found is not None
-        assert found['id'] == sample_device['id']
+        assert found["id"] == sample_device["id"]
 
-        not_found = device_manager.find_device_in_cache(ip='192.168.1.200')
+        not_found = device_manager.find_device_in_cache(ip="192.168.1.200")
         assert not_found is None
 
     def test_load_state_from_existing_file(self, tmp_state_file, sample_device):
         """Load state from existing JSON file."""
         # Create state file manually
         state = {
-            'current_device': sample_device,
-            'cached_devices': [sample_device],
-            'last_scan_time': time.time()
+            "current_device": sample_device,
+            "cached_devices": [sample_device],
+            "last_scan_time": time.time(),
         }
-        with open(tmp_state_file, 'w') as f:
+        with open(tmp_state_file, "w") as f:
             json.dump(state, f)
 
         # Load it
         dm = DeviceManager(state_file=tmp_state_file)
-        assert dm.current_device['id'] == sample_device['id']
+        assert dm.current_device["id"] == sample_device["id"]
         assert len(dm.cached_devices) == 1
 
     def test_reload_from_disk_multi_worker_simulation(self, tmp_state_file, sample_device):
@@ -134,4 +134,4 @@ class TestDeviceManager:
         device = dm2.get_current_device()
 
         assert device is not None
-        assert device['id'] == sample_device['id']
+        assert device["id"] == sample_device["id"]
