@@ -536,6 +536,7 @@ def index():
         "player.html",
         default_stream_url=config.default_stream_url,
         default_device_ip=config.default_device_ip,
+        api_auth_enabled=config.api_auth_enabled,
         version=__version__,
     )
 

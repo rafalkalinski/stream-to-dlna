@@ -133,6 +133,22 @@ class TestIndex:
         html = response.data.decode()
         assert "<title>DLNA Radio</title>" in html
         assert 'id="np-card"' in html
+        # API key field is only shown when auth is enabled (disabled in test config)
+        assert 'id="api-key"' not in html
+
+    def test_player_shows_api_key_field_when_auth_enabled(self, app):
+        """Player template renders the API key setting when auth is enabled."""
+        from flask import render_template
+
+        with app.test_request_context("/"):
+            html = render_template(
+                "player.html",
+                default_stream_url="",
+                default_device_ip="",
+                api_auth_enabled=True,
+                version="test",
+            )
+        assert 'id="api-key"' in html
 
 
 class TestErrorHandlers:
