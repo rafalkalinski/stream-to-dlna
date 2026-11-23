@@ -2,8 +2,12 @@
 
 import logging
 import socket
+import time
+from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urlparse
 from xml.etree import ElementTree as ET
+
+import requests
 
 from app.http_client import http_client
 
@@ -160,14 +164,32 @@ class SSDPDiscovery:
         return devices
 
     @staticmethod
-    def try_direct_connection(host: str, timeout: int = 5) -> dict[str, str] | None:
+    def _port_open(host: str, port: int, timeout: float) -> bool:
+        """Quick TCP connect check."""
+        try:
+            with socket.create_connection((host, port), timeout=timeout):
+                return True
+        except OSError:
+            return False
+
+    @staticmethod
+    def try_direct_connection(
+        host: str, timeout: int = 5, connect_timeout: float = 1.0, max_total: float = 15.0
+    ) -> dict[str, str] | None:
         """
         Try to connect directly to a device by IP/hostname.
         Attempts common device description XML paths.
 
+        Ports are probed in parallel first (TCP connect, `connect_timeout`), so an
+        unreachable host fails within about a second instead of trying every
+        port/path combination. HTTP requests are sent without retries and the
+        whole attempt is bounded by `max_total` seconds.
+
         Args:
             host: IP address or hostname
-            timeout: Timeout for each attempt (default: 5s)
+            timeout: Read timeout for each description request (default: 5s)
+            connect_timeout: TCP connect timeout for the port probe (default: 1s)
+            max_total: Upper bound for the whole attempt in seconds (default: 15s)
 
         Returns:
             Device information dictionary or None if not found
@@ -185,12 +207,30 @@ class SSDPDiscovery:
         common_ports = [8080, 49152, 9197, 49153, 49154, 80]
 
         logger.info(f"Attempting direct connection to {host}")
+        deadline = time.monotonic() + max_total
 
-        for port in common_ports:
+        with ThreadPoolExecutor(max_workers=len(common_ports)) as pool:
+            reachable = list(
+                pool.map(lambda p: SSDPDiscovery._port_open(host, p, connect_timeout), common_ports)
+            )
+        open_ports = [p for p, ok in zip(common_ports, reachable, strict=True) if ok]
+        if not open_ports:
+            logger.warning(f"Could not connect to device at {host}: no open DLNA ports")
+            return None
+        logger.debug(f"Open ports on {host}: {open_ports}")
+
+        for port in open_ports:
             for path in common_paths:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    logger.warning(f"Direct connection to {host} timed out after {max_total}s")
+                    return None
                 location = f"http://{host}:{port}{path}"
                 try:
-                    response = http_client.get(location, timeout=timeout)
+                    # Plain requests (no retry adapter): a wrong path should fail fast
+                    response = requests.get(
+                        location, timeout=(connect_timeout, min(timeout, remaining))
+                    )
                     if (
                         response.status_code == 200
                         and "xml" in response.headers.get("Content-Type", "").lower()

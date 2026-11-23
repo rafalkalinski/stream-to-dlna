@@ -8,6 +8,9 @@ All notable changes to this project will be documented in this file.
 - **Activity log across devices** (0.6.2): every action (play, stop, speaker selection, scan) is broadcast as an `activity` event with the name of the device that made it and shown in the Activity log on all open players (last 50 replayed on connect); players also log speaker state changes (e.g. `PMX9: playing → stopped`). Device name is detected from the browser or set in Settings (`X-Client-Name` header). Log filters for events / API calls. Actions are also written to the container log.
 - **Live updates** (0.6.1): new `GET /events` Server-Sent Events stream; the web player now updates instantly when playback is started/stopped or the speaker changes from another device. A single background monitor queries the speaker (~3 s) for all connected clients instead of each browser polling it. Falls back to polling if the stream is unavailable.
 
+### Fixed
+- **Add speaker by IP** (0.6.3): an unreachable IP no longer blocks a request for minutes (up to ~10 min: 30 port/path combinations × 5 s timeout × retries). Ports are now probed in parallel with a 1 s TCP connect, only open ports are queried, without retries, and the whole attempt is capped at 15 s.
+
 ### Changed
 - Gunicorn threads raised from 4 to 16 (each open player holds one for its event stream; max 10 streams)
 
