@@ -201,7 +201,7 @@ ffmpeg:
 
 Note: Devices are discovered automatically and selected via the GUI/API; `dlna.default_device_ip` is optional.
 
-Gunicorn always runs with 1 worker and 4 threads (set in the Dockerfile). A single worker is required — the streaming server and playback state live in-process.
+Gunicorn always runs with 1 worker and 16 threads (set in the Dockerfile). A single worker is required — the streaming server and playback state live in-process. Each open web player holds one thread for its live event stream (`/events`, up to 10 clients; beyond that the player falls back to polling).
 
 ### Security Configuration
 
@@ -338,6 +338,13 @@ Returns streaming status, DLNA device state, current device info, and — while 
 ```bash
 GET /health
 ```
+
+**Live events (Server-Sent Events)**
+```bash
+GET /events
+curl -N http://localhost:5000/events
+```
+Streams `status` events (same payload as `/status`) on connect and whenever the state changes — including changes made by other clients or on the speaker itself (checked every ~3 s while at least one client is connected) — and `devices` events after scans/selection. Up to 10 concurrent clients; more get `503` and should poll `/status`.
 
 ## Architecture
 

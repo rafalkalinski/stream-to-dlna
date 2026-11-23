@@ -123,6 +123,36 @@ class TestStatusEndpoints:
         assert data["stream"] == info
 
 
+class TestEventStream:
+    """Test the Server-Sent Events endpoint."""
+
+    def test_events_sends_initial_status_and_devices(self, client):
+        import app.main as main
+
+        response = client.get("/events", buffered=False)
+        try:
+            assert response.status_code == 200
+            assert response.mimetype == "text/event-stream"
+            chunks = response.response
+            assert next(chunks).decode().startswith("retry:")
+            first = next(chunks).decode()
+            assert first.startswith("event: status\n")
+            assert "effective_state" in first
+            assert next(chunks).decode().startswith("event: devices\n")
+            assert main.event_broker.subscriber_count == 1
+        finally:
+            response.close()
+        assert main.event_broker.subscriber_count == 0
+
+    def test_events_rejects_when_full(self, client, monkeypatch):
+        import app.main as main
+        from app.events import EventBroker
+
+        monkeypatch.setattr(main, "event_broker", EventBroker(max_subscribers=0))
+        response = client.get("/events")
+        assert response.status_code == 503
+
+
 class TestIndex:
     """Test web UI route."""
 

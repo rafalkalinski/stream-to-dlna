@@ -9,13 +9,14 @@ import subprocess
 import sys
 from urllib.parse import urlparse
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, Response, jsonify, render_template, request, stream_with_context
 
 from app import __version__
 from app.config import Config
 from app.device_manager import DeviceManager
 from app.discovery import SSDPDiscovery
 from app.dlna_client import DLNAClient
+from app.events import EventBroker, StateMonitor, sse_stream
 from app.http_client import http_client
 from app.security import init_rate_limiter, require_api_key
 from app.stream_cache import StreamFormatCache
@@ -474,6 +475,8 @@ def _background_device_scan():
 
         # Try auto-select default device after scan completes
         _try_auto_select_default_device()
+        _notify_devices()
+        _notify_state()
 
     except Exception as e:
         logger.error(f"Background device scan failed: {e}", exc_info=True)
@@ -581,6 +584,7 @@ def devices():
             devices_list = SSDPDiscovery.discover(timeout=timeout)
             device_manager.update_device_cache(devices_list)
             cache_age = 0
+            _notify_devices()
         else:
             cache_age = device_manager.get_cache_age()
             devices_list = device_manager.get_cached_devices()
@@ -662,6 +666,8 @@ def device_select():
 
         # Update global DLNA client
         dlna_client = client
+        _notify_devices()
+        _notify_state()
 
         return (
             jsonify(
@@ -851,6 +857,7 @@ def play():
                 "transcoding": needs_transcoding,
                 "format": stream_format,
             }
+            _notify_state()
             return (
                 jsonify(
                     {
@@ -893,6 +900,7 @@ def stop():
             streamer.stop()
             streamer = None
         playback_info = None
+        _notify_state()
 
         return jsonify({"status": "stopped"}), 200
 
@@ -901,66 +909,136 @@ def stop():
         return jsonify({"error": str(e)}), 500
 
 
+def _build_status() -> dict:
+    """Build the current playback/device state (shared by /status and SSE)."""
+    is_streaming = streamer is not None and streamer.is_running()
+
+    dlna_info = None
+    if dlna_client:
+        dlna_info = dlna_client.get_transport_info(retries=2)
+
+        # If DLNA query failed but streamer is running, provide fallback info
+        if dlna_info is None and is_streaming:
+            logger.debug("DLNA query failed but streamer is running - using fallback status")
+            dlna_info = {"state": "PLAYING", "status": "UNKNOWN"}
+
+    # Get current device info
+    current_device = device_manager.get_current_device() if device_manager else None
+    device_info = None
+    if current_device:
+        device_info = {
+            "friendly_name": current_device.get("friendly_name"),
+            "ip": current_device.get("ip"),
+        }
+
+    # Calculate effective state based on both sources
+    effective_state = "idle"
+    state_details = None
+    dlna_state = dlna_info.get("state") if dlna_info else None
+
+    if is_streaming and dlna_state == "PLAYING":
+        effective_state = "playing"
+    elif is_streaming and dlna_state == "TRANSITIONING":
+        effective_state = "starting"
+    elif is_streaming and dlna_state in ("STOPPED", "NO_MEDIA_PRESENT"):
+        effective_state = "error"
+        state_details = "Stream running but device stopped"
+    elif is_streaming and dlna_state is None:
+        effective_state = "playing"
+        state_details = "Device not responding"
+    elif not is_streaming and dlna_state in ("PLAYING", "TRANSITIONING"):
+        effective_state = "error"
+        state_details = f"Stream ended but device stuck in {dlna_state}"
+    elif not is_streaming and dlna_state in ("STOPPED", "NO_MEDIA_PRESENT", None):
+        effective_state = "idle"
+
+    response = {
+        "streaming": is_streaming,
+        "dlna": dlna_info,
+        "current_device": device_info,
+        "effective_state": effective_state,
+        "stream": playback_info if is_streaming else None,
+    }
+    if state_details:
+        response["state_details"] = state_details
+    return response
+
+
+# ── Server-Sent Events ──────────────────────────────────────────────
+# One background monitor queries the device on behalf of all connected clients.
+event_broker = EventBroker(max_subscribers=10)
+state_monitor = StateMonitor(event_broker, _build_status, interval=3.0)
+
+
+def _notify_state():
+    """Push the current state to SSE clients right away (no-op without clients)."""
+    if event_broker.subscriber_count == 0:
+        return
+    try:
+        event_broker.publish("status", _build_status(), only_if_changed=True)
+    except Exception as e:
+        logger.debug(f"Failed to publish state: {e}")
+    # Device state often changes shortly after a command (TRANSITIONING -> PLAYING)
+    state_monitor.poke()
+
+
+def _notify_devices():
+    """Push the cached device list to SSE clients (no-op without clients)."""
+    if event_broker.subscriber_count == 0 or not device_manager:
+        return
+    try:
+        event_broker.publish(
+            "devices", {"devices": device_manager.get_cached_devices()}, only_if_changed=True
+        )
+    except Exception as e:
+        logger.debug(f"Failed to publish devices: {e}")
+
+
 @app.route("/status", methods=["GET"])
 def status():
     """Get current playback status."""
     try:
-        is_streaming = streamer is not None and streamer.is_running()
-
-        dlna_info = None
-        if dlna_client:
-            dlna_info = dlna_client.get_transport_info(retries=2)
-
-            # If DLNA query failed but streamer is running, provide fallback info
-            if dlna_info is None and is_streaming:
-                logger.debug("DLNA query failed but streamer is running - using fallback status")
-                dlna_info = {"state": "PLAYING", "status": "UNKNOWN"}
-
-        # Get current device info
-        current_device = device_manager.get_current_device()
-        device_info = None
-        if current_device:
-            device_info = {
-                "friendly_name": current_device.get("friendly_name"),
-                "ip": current_device.get("ip"),
-            }
-
-        # Calculate effective state based on both sources
-        effective_state = "idle"
-        state_details = None
-        dlna_state = dlna_info.get("state") if dlna_info else None
-
-        if is_streaming and dlna_state == "PLAYING":
-            effective_state = "playing"
-        elif is_streaming and dlna_state == "TRANSITIONING":
-            effective_state = "starting"
-        elif is_streaming and dlna_state in ("STOPPED", "NO_MEDIA_PRESENT"):
-            effective_state = "error"
-            state_details = "Stream running but device stopped"
-        elif is_streaming and dlna_state is None:
-            effective_state = "playing"
-            state_details = "Device not responding"
-        elif not is_streaming and dlna_state in ("PLAYING", "TRANSITIONING"):
-            effective_state = "error"
-            state_details = f"Stream ended but device stuck in {dlna_state}"
-        elif not is_streaming and dlna_state in ("STOPPED", "NO_MEDIA_PRESENT", None):
-            effective_state = "idle"
-
-        response = {
-            "streaming": is_streaming,
-            "dlna": dlna_info,
-            "current_device": device_info,
-            "effective_state": effective_state,
-            "stream": playback_info if is_streaming else None,
-        }
-        if state_details:
-            response["state_details"] = state_details
-
-        return jsonify(response), 200
-
+        return jsonify(_build_status()), 200
     except Exception as e:
         logger.error(f"Error getting status: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/events", methods=["GET"])
+def events():
+    """
+    Server-Sent Events stream of state changes.
+
+    Events:
+    - status: same payload as GET /status (sent on connect and on every change)
+    - devices: {"devices": [...]} cached device list (on connect, after scans/selection)
+    """
+    q = event_broker.subscribe()
+    if q is None:
+        return (
+            jsonify({"message": "Too many event stream clients - poll /status instead"}),
+            503,
+        )
+
+    try:
+        initial = [
+            ("status", _build_status()),
+            ("devices", {"devices": device_manager.get_cached_devices() if device_manager else []}),
+        ]
+    except Exception as e:
+        event_broker.unsubscribe(q)
+        logger.error(f"Error preparing event stream: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+    state_monitor.ensure_running()
+
+    return Response(
+        stream_with_context(sse_stream(event_broker, q, initial)),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",  # disable nginx proxy buffering
+        },
+    )
 
 
 @app.route("/streams/cached", methods=["GET"])
