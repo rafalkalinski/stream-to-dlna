@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- **Live-stream DLNA flags**: streaming server now sends `DLNA.ORG_OP=00` and live-stream `DLNA.ORG_FLAGS=8D100000` (instead of seekable-content flags) in `contentFeatures.dlna.org`
+- **Security**: patched CVEs in dependencies; `urllib3>=2.8.0` (CVE-2026-97689)
+
+### Changed
+- **CI / Docker image**: `latest` is rebuilt monthly (and on demand) from a fresh base image without layer cache, so Debian security patches are picked up without code changes; image now carries the real `APP_VERSION`; `vX.Y` tags are published as image tags
+- **Config**: removed unused `performance.gunicorn_workers` / `gunicorn_threads` and `dlna_advanced` options — Gunicorn is fixed at 1 worker / 4 threads in the Dockerfile
+- **Dev tooling**: updated dev dependencies (pytest 9, ruff, black, mypy, bandit), migrated ruff config to `[tool.ruff.lint]`, removed unused test deps and markers; `make docker-build`/`docker-test` now pass `APP_VERSION`
+- **Docs**: README quick start uses the Docker Hub image, corrected build/deploy instructions, project structure, rate-limiting and API key notes; TESTING.md matches the actual test suite; removed obsolete `.env.example`
+
 ## [v0.5] - 2026-05-28
 
 ### Added

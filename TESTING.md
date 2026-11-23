@@ -3,13 +3,14 @@
 ## Quick Start
 
 ```bash
-# Create virtual environment (recommended)
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# Automated setup (venv + dependencies + config.yaml + smoke test)
+./dev-setup.sh
+source venv/bin/activate
 
-# Install dependencies
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
+# Or manually
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt -r requirements-dev.txt
 
 # Run all tests
 pytest
@@ -31,36 +32,24 @@ pytest tests/unit/test_validation.py::TestValidateIPAddress::test_valid_ip_addre
 
 ```
 tests/
-├── conftest.py              # Shared fixtures
-├── unit/                    # Unit tests (fast, isolated)
-│   ├── test_validation.py   # Input validation
+├── conftest.py                  # Shared fixtures
+├── unit/                        # Unit tests (fast, isolated)
+│   ├── test_validation.py       # Input validation (IP, URL, boolean)
 │   ├── test_device_manager.py
 │   ├── test_dlna_client.py
-│   ├── test_streamer.py
-│   ├── test_discovery.py
-│   └── test_config.py
-├── integration/             # Integration tests (slower, real components)
-│   ├── test_api_endpoints.py
-│   ├── test_workflows.py
-│   └── test_security.py
-└── performance/             # Performance tests
-    └── test_performance.py
+│   └── test_streamer.py
+└── integration/                 # Flask test client against the API
+    └── test_api_endpoints.py
 ```
 
 ## Running Specific Test Types
 
 ```bash
 # Unit tests only (fast)
-pytest tests/unit/ -v
+pytest tests/unit/ -v      # or: make test-unit
 
 # Integration tests only
-pytest tests/integration/ -v
-
-# Security tests only
-pytest -m security
-
-# Skip slow tests
-pytest -m "not slow"
+pytest tests/integration/ -v   # or: make test-integration
 ```
 
 ## Code Coverage
@@ -78,6 +67,10 @@ pytest --cov=app --cov-fail-under=80
 ```
 
 ## Code Quality Checks
+
+Also available as Makefile targets: `make lint`, `make format-check`, `make type-check`, `make security`, `make all-checks`.
+
+> **Note:** the codebase still has outstanding ruff/black findings, so these checks are informational in CI (`continue-on-error`) for now.
 
 ```bash
 # Linting with ruff
@@ -145,35 +138,17 @@ def test_with_fixtures(device_manager, sample_device):
 
 ## Continuous Integration
 
-Tests run automatically on:
-- Push to `main`, `develop`, `claude/**` branches
-- Pull requests to `main`, `develop`
-
-The CI pipeline:
+Tests run automatically on pushes and pull requests to `main` (`.github/workflows/tests.yml`):
 1. Tests on Python 3.11, 3.12, 3.14
-2. Runs linting (ruff) and formatting checks (black)
-3. Runs security scanning (bandit)
-4. Runs unit tests with coverage
-5. Runs integration tests
-6. Builds Docker image and smoke tests it
-7. Uploads coverage to Codecov
+2. Linting (ruff), formatting (black), security scan (bandit) — informational for now
+3. Unit tests with coverage
+4. Integration tests
+5. Pull requests only: builds the Docker image and smoke-tests `/health`
+6. Uploads coverage to Codecov
 
-See `.github/workflows/tests.yml` for details.
+Docker images are built and pushed by a separate workflow (`.github/workflows/docker-publish.yml`) — see README → *Image updates*.
 
-## Test Markers
-
-```python
-@pytest.mark.unit        # Unit test
-@pytest.mark.integration # Integration test
-@pytest.mark.slow        # Slow test (skip in quick runs)
-@pytest.mark.security    # Security test
-```
-
-Run specific markers:
-```bash
-pytest -m unit
-pytest -m "integration and not slow"
-```
+Locally, `make docker-test` builds the image and checks `/health`.
 
 ## Mocking
 

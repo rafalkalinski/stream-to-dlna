@@ -1,4 +1,7 @@
-.PHONY: help venv install install-dev test test-unit test-integration lint format security clean
+.PHONY: help venv install install-dev test test-unit test-integration coverage lint lint-fix format format-check security type-check all-checks docker-build docker-run docker-test clean
+
+# Version from git tags (same scheme as CI and deploy.sh): vMAJOR.MINOR tag + commits since
+APP_VERSION ?= $(or $(shell git describe --tags --long --match 'v*' 2>/dev/null | sed -E 's/^v//; s/-([0-9]+)-g[0-9a-f]+$$/.\1/'),0.0.0)
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -55,7 +58,7 @@ type-check: ## Run type checker (mypy)
 all-checks: lint format-check type-check security test ## Run all quality checks
 
 docker-build: ## Build Docker image
-	docker build -t stream-to-dlna:latest .
+	docker build --pull --build-arg APP_VERSION=$(APP_VERSION) -t stream-to-dlna:latest .
 
 docker-run: ## Run Docker container
 	docker run --rm -it -p 5000:5000 -p 8080:8080 \
@@ -63,7 +66,7 @@ docker-run: ## Run Docker container
 		stream-to-dlna:latest
 
 docker-test: ## Build and test Docker image
-	docker build -t stream-to-dlna:test .
+	docker build --pull --build-arg APP_VERSION=$(APP_VERSION) -t stream-to-dlna:test .
 	docker run --rm -d --name test-container -p 5001:5000 stream-to-dlna:test
 	sleep 5
 	curl -f http://localhost:5001/health || (docker stop test-container && exit 1)

@@ -114,16 +114,6 @@ class Config:
 
     # Performance settings
     @property
-    def gunicorn_workers(self) -> int:
-        """Get number of Gunicorn workers."""
-        return self.get('performance.gunicorn_workers', 1)
-
-    @property
-    def gunicorn_threads(self) -> int:
-        """Get number of threads per Gunicorn worker."""
-        return self.get('performance.gunicorn_threads', 4)
-
-    @property
     def connection_pool_size(self) -> int:
         """Get HTTP connection pool size."""
         return self.get('performance.connection_pool_size', 10)
