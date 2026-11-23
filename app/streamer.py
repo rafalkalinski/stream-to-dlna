@@ -84,6 +84,9 @@ class StreamHandler(BaseHTTPRequestHandler):
             self._send_stream_headers()
             self.end_headers()
 
+            streamer = getattr(self.server, "audio_streamer", None)
+            if streamer:
+                streamer.client_connected()
             try:
                 while self.ffmpeg_process and self.ffmpeg_process.poll() is None:
                     chunk = self.ffmpeg_process.stdout.read(self.chunk_size)
@@ -94,6 +97,9 @@ class StreamHandler(BaseHTTPRequestHandler):
                 logger.info("Client disconnected from stream")
             except Exception as e:
                 logger.error(f"Error streaming data: {e}")
+            finally:
+                if streamer:
+                    streamer.client_disconnected()
         else:
             self.send_response(404)
             self.end_headers()
@@ -132,6 +138,16 @@ class AudioStreamer:
         self.stderr_line_count = 0  # Track stderr lines to prevent memory leak
         self.last_stderr_lines = []  # Store last N lines for crash debugging
         self.max_stored_stderr = 20  # Keep last 20 lines
+        self.active_clients = 0  # Devices currently pulling /stream.mp3
+        self._clients_lock = threading.Lock()
+
+    def client_connected(self):
+        with self._clients_lock:
+            self.active_clients += 1
+
+    def client_disconnected(self):
+        with self._clients_lock:
+            self.active_clients = max(0, self.active_clients - 1)
 
     @staticmethod
     def _cleanup_orphaned_ffmpeg():
@@ -238,6 +254,7 @@ class AudioStreamer:
 
             # Start HTTP server in separate thread with address reuse enabled
             self.http_server = ReuseAddrHTTPServer(("0.0.0.0", self.port), StreamHandler)
+            self.http_server.audio_streamer = self  # lets the handler count listeners
             self.server_thread = threading.Thread(
                 target=self.http_server.serve_forever, daemon=True
             )

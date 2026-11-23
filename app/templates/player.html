@@ -552,7 +552,7 @@
             pushLog({ kind: 'state', time: new Date(), text, ok: true, data });
         }
 
-        const KIND_ICONS = { play: '▶', stop: '■', select: '🔈', scan: '↻' };
+        const KIND_ICONS = { play: '▶', stop: '■', 'auto-stop': '⏹', select: '🔈', scan: '↻' };
         function renderLog() {
             const list = $('log-list');
             list.replaceChildren();

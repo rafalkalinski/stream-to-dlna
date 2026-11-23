@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 - **Live updates** (0.6.1): new `GET /events` Server-Sent Events stream; the web player now updates instantly when playback is started/stopped or the speaker changes from another device. A single background monitor queries the speaker (~3 s) for all connected clients instead of each browser polling it. Falls back to polling if the stream is unavailable.
 
 ### Fixed
+- **Auto-stop** (0.6.5): when the speaker stops playing (turned off, switched to another source) and nobody is pulling the stream for 30 s, the stream is stopped so FFmpeg no longer downloads/transcodes the radio indefinitely. The speaker itself is never sent a Stop command. Shown as an `auto-stop` activity on all players.
 - **Add speaker by IP** (0.6.3): an unreachable IP no longer blocks a request for minutes (up to ~10 min: 30 port/path combinations × 5 s timeout × retries). Ports are now probed in parallel with a 1 s TCP connect, only open ports are queried, without retries, and the whole attempt is capped at 15 s.
 
 ### Changed

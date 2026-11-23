@@ -36,6 +36,7 @@ Stream internet radio to DLNA devices with automatic format detection and smart 
 - HTTP connection pooling for improved performance
 - Process-level file locking (fcntl) for multi-worker safety
 - FFmpeg process tracking and orphan cleanup
+- Auto-stop: the stream is stopped when the speaker has stopped playing (e.g. turned off) and nobody is listening for 30 s
 - Configurable timeouts for all network operations
 - Stderr buffer limiting to prevent memory leaks
 - Single-worker architecture for consistent state management (fixed in the Dockerfile)
@@ -346,7 +347,7 @@ curl -N http://localhost:5000/events
 ```
 Streams `status` events (same payload as `/status`) on connect and whenever the state changes — including changes made by other clients or on the speaker itself (checked every ~3 s while at least one client is connected) — and `devices` events after scans/selection. Up to 10 concurrent clients; more get `503` and should poll `/status`.
 
-`activity` events describe actions (play, stop, speaker selection, scan) with the name of the client that made them, e.g. `{"id": 7, "time": "...", "client": "iPhone · Safari", "action": "stop", "message": "Stop on PMX9", "ok": true}`. The last 50 are replayed on connect. Clients identify themselves with the optional `X-Client-Name` header (URI-encoded; the web player sends the name set in Settings, or one detected from the browser) — otherwise the client IP is used. Activities are also written to the container log (`[activity] ...`).
+`activity` events describe actions (play, stop, auto-stop, speaker selection, scan) with the name of the client that made them, e.g. `{"id": 7, "time": "...", "client": "iPhone · Safari", "action": "stop", "message": "Stop on PMX9", "ok": true}`. The last 50 are replayed on connect. Clients identify themselves with the optional `X-Client-Name` header (URI-encoded; the web player sends the name set in Settings, or one detected from the browser) — otherwise the client IP is used. Activities are also written to the container log (`[activity] ...`).
 
 ## Architecture
 

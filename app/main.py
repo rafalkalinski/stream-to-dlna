@@ -7,6 +7,8 @@ import re
 import socket
 import subprocess
 import sys
+import threading
+import time
 from datetime import UTC, datetime
 from urllib.parse import unquote, urlparse
 
@@ -526,8 +528,6 @@ def initialize():
     _try_auto_select_default_device()
 
     # Start background tasks (parallel execution for faster startup)
-    import threading
-
     # Background device scan with longer timeout
     scan_thread = threading.Thread(target=_background_device_scan, daemon=True)
     scan_thread.start()
@@ -874,6 +874,7 @@ def play():
                 "format": stream_format,
             }
             _notify_state()
+            _start_playback_watchdog()
             _record_activity(
                 "play",
                 f"Play {_station_name(stream_url)} on {_speaker_name(device_info)}"
@@ -1084,6 +1085,97 @@ def _record_activity(
         )
     except Exception as e:
         logger.debug(f"Failed to publish activity: {e}")
+
+
+# ── Playback watchdog ───────────────────────────────────────────────
+# Stops our stream when the speaker stopped playing (turned off, switched to
+# another source) and nobody is pulling the stream, so FFmpeg does not keep
+# downloading/transcoding the radio forever. Never sends Stop to the device -
+# it may be playing something else by now.
+AUTO_STOP_AFTER = 30.0  # seconds the speaker must stay idle before auto-stop
+WATCHDOG_INTERVAL = 5.0
+_watchdog_lock = threading.Lock()
+_watchdog_thread: threading.Thread | None = None
+
+
+def _playback_idle(current, transport_state: str | None) -> bool:
+    """
+    True when nobody is listening to the current stream.
+
+    Transcoding: no device is connected to /stream.mp3 and the speaker is not
+    playing (None = device unreachable, e.g. powered off).
+    Passthrough: we cannot see listeners, so rely on an explicit STOPPED /
+    NO_MEDIA_PRESENT from the device (unknown state never counts as idle).
+    """
+    listeners = getattr(current, "active_clients", None)
+    if isinstance(listeners, int):
+        return listeners == 0 and transport_state not in ("PLAYING", "TRANSITIONING")
+    return transport_state in ("STOPPED", "NO_MEDIA_PRESENT")
+
+
+def _start_playback_watchdog():
+    """Start the watchdog thread if it is not running (call after starting playback)."""
+    global _watchdog_thread
+    with _watchdog_lock:
+        if _watchdog_thread is not None:
+            return
+        _watchdog_thread = threading.Thread(
+            target=_playback_watchdog, name="playback-watchdog", daemon=True
+        )
+        _watchdog_thread.start()
+
+
+def _playback_watchdog():
+    """Watch the current stream until it ends; auto-stop it when nobody listens."""
+    global _watchdog_thread
+    watched = None
+    idle_since = None
+    while True:
+        time.sleep(WATCHDOG_INTERVAL)
+        with _watchdog_lock:
+            current = streamer
+            if current is None or not current.is_running():
+                _watchdog_thread = None
+                return
+        if current is not watched:  # a new stream was started
+            watched, idle_since = current, None
+
+        try:
+            info = dlna_client.get_transport_info(retries=1) if dlna_client else None
+        except Exception:
+            info = None
+        state = info.get("state") if info else None
+
+        if not _playback_idle(current, state):
+            idle_since = None
+            continue
+        now = time.monotonic()
+        idle_since = idle_since or now
+        if now - idle_since >= AUTO_STOP_AFTER:
+            _auto_stop(current, state)
+
+
+def _auto_stop(current, transport_state: str | None):
+    """Stop the given stream (if it is still the active one) and tell everyone."""
+    global streamer, playback_info
+    if streamer is not current:
+        return
+    current.stop()
+    streamer = None
+    playback_info = None
+    speaker = _speaker_name(device_manager.get_current_device() if device_manager else None)
+    reason = (
+        f"{speaker} is {transport_state.lower().replace('_', ' ')}"
+        if transport_state
+        else f"{speaker} is not responding"
+    )
+    _record_activity(
+        "auto-stop",
+        f"Auto-stop: {reason} and nobody is listening",
+        client="server",
+        speaker=speaker,
+    )
+    _notify_state()
 
 
 @app.route("/status", methods=["GET"])
