@@ -10,8 +10,8 @@ on:
     # Build (but don't push) for pull requests to verify the Dockerfile
     branches: [ "master", "main" ]
   schedule:
-    # Weekly rebuild (Monday 04:00 UTC) to pick up base image / Debian security patches
-    - cron: '0 4 * * 1'
+    # Monthly rebuild (1st of month, 04:00 UTC) to pick up base image / Debian security patches
+    - cron: '0 4 1 * *'
   # Allow manual rebuild from the Actions tab
   workflow_dispatch:
 
