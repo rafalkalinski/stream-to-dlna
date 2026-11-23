@@ -4,6 +4,7 @@ import json
 import logging
 import queue
 import threading
+from collections import deque
 from collections.abc import Callable, Iterator
 
 logger = logging.getLogger(__name__)
@@ -17,12 +18,14 @@ class EventBroker:
     (e.g. a dead connection) has events dropped instead of blocking publishers.
     """
 
-    def __init__(self, max_subscribers: int = 10, queue_size: int = 20):
+    def __init__(self, max_subscribers: int = 10, queue_size: int = 20, history_size: int = 50):
         self.max_subscribers = max_subscribers
         self.queue_size = queue_size
         self._subscribers: list[queue.Queue] = []
         self._lock = threading.Lock()
         self._last: dict[str, str] = {}  # event name -> last published payload (JSON)
+        self._history: deque[dict] = deque(maxlen=history_size)  # recent activity events
+        self._activity_seq = 0
 
     @property
     def subscriber_count(self) -> int:
@@ -68,6 +71,23 @@ class EventBroker:
             except queue.Full:
                 logger.debug("SSE subscriber queue full - dropping event")
         return True
+
+    def record_activity(self, activity: dict) -> dict:
+        """
+        Store an activity (user action) in the history and publish it as an
+        "activity" event. Each activity gets an increasing "id" so clients can
+        de-duplicate history replayed on reconnect.
+        """
+        with self._lock:
+            self._activity_seq += 1
+            activity = {**activity, "id": self._activity_seq}
+            self._history.append(activity)
+        self.publish("activity", activity)
+        return activity
+
+    def activity_history(self) -> list[dict]:
+        with self._lock:
+            return list(self._history)
 
 
 def format_sse(event: str, payload: str) -> str:

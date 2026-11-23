@@ -153,6 +153,60 @@ class TestEventStream:
         assert response.status_code == 503
 
 
+class TestActivity:
+    """Test activity broadcasting with client names."""
+
+    def test_stop_records_activity_with_client_name(self, client, monkeypatch):
+        import app.main as main
+        from app.events import EventBroker
+
+        broker = EventBroker()
+        monkeypatch.setattr(main, "event_broker", broker)
+        monkeypatch.setattr(main, "dlna_client", None)
+        monkeypatch.setattr(main, "streamer", None)
+
+        # Non-ASCII names are sent URI-encoded by the web player
+        response = client.post("/stop", headers={"X-Client-Name": "Telefon%20Rafa%C5%82a"})
+        assert response.status_code == 200
+
+        history = broker.activity_history()
+        assert len(history) == 1
+        assert history[0]["action"] == "stop"
+        assert history[0]["client"] == "Telefon Rafała"
+        assert history[0]["id"] == 1
+
+    def test_client_name_falls_back_to_ip_and_is_sanitised(self, client, monkeypatch):
+        import app.main as main
+        from app.events import EventBroker
+
+        broker = EventBroker()
+        monkeypatch.setattr(main, "event_broker", broker)
+        monkeypatch.setattr(main, "dlna_client", None)
+        monkeypatch.setattr(main, "streamer", None)
+
+        client.post("/stop")
+        client.post("/stop", headers={"X-Client-Name": "a%0Ab" + "x" * 100})
+        first, second = broker.activity_history()
+        assert first["client"] == "127.0.0.1"
+        assert "\n" not in second["client"] and len(second["client"]) <= 40
+
+    def test_events_replays_activity_history(self, client, monkeypatch):
+        import app.main as main
+        from app.events import EventBroker
+
+        broker = EventBroker()
+        broker.record_activity({"action": "play", "message": "Play x on y", "client": "c"})
+        monkeypatch.setattr(main, "event_broker", broker)
+
+        response = client.get("/events", buffered=False)
+        try:
+            chunks = [next(response.response).decode() for _ in range(4)]
+        finally:
+            response.close()
+        assert chunks[3].startswith("event: activity\n")
+        assert '"message": "Play x on y"' in chunks[3]
+
+
 class TestIndex:
     """Test web UI route."""
 

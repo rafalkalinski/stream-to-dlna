@@ -7,7 +7,8 @@ import re
 import socket
 import subprocess
 import sys
-from urllib.parse import urlparse
+from datetime import UTC, datetime
+from urllib.parse import unquote, urlparse
 
 from flask import Flask, Response, jsonify, render_template, request, stream_with_context
 
@@ -397,6 +398,12 @@ def _try_auto_select_default_device():
         logger.info(
             f"Successfully auto-selected default device: {device_info.get('friendly_name', 'Unknown')}"
         )
+        _record_activity(
+            "select",
+            f"Selected speaker {_speaker_name(device_info)} (default)",
+            client="server",
+            speaker=_speaker_name(device_info),
+        )
     except Exception as e:
         logger.error(f"Failed to auto-select default device: {e}", exc_info=True)
 
@@ -585,6 +592,10 @@ def devices():
             device_manager.update_device_cache(devices_list)
             cache_age = 0
             _notify_devices()
+            _record_activity(
+                "scan",
+                f"Scanned network: {len(devices_list)} speaker{'' if len(devices_list) == 1 else 's'} found",
+            )
         else:
             cache_age = device_manager.get_cache_age()
             devices_list = device_manager.get_cached_devices()
@@ -668,6 +679,11 @@ def device_select():
         dlna_client = client
         _notify_devices()
         _notify_state()
+        _record_activity(
+            "select",
+            f"Selected speaker {_speaker_name(device_info)}",
+            speaker=_speaker_name(device_info),
+        )
 
         return (
             jsonify(
@@ -858,6 +874,13 @@ def play():
                 "format": stream_format,
             }
             _notify_state()
+            _record_activity(
+                "play",
+                f"Play {_station_name(stream_url)} on {_speaker_name(device_info)}"
+                + (" (transcoding)" if needs_transcoding else ""),
+                speaker=_speaker_name(device_info),
+                stream=stream_url,
+            )
             return (
                 jsonify(
                     {
@@ -872,12 +895,20 @@ def play():
             )
         else:
             streamer.stop()
+            _record_activity(
+                "play",
+                f"Play {_station_name(stream_url)} on {_speaker_name(device_info)} failed: device did not start",
+                ok=False,
+                speaker=_speaker_name(device_info),
+                stream=stream_url,
+            )
             return jsonify({"error": "Failed to start playback on DLNA device"}), 500
 
     except Exception as e:
         logger.error(f"Error starting playback: {e}", exc_info=True)
         if streamer:
             streamer.stop()
+        _record_activity("play", f"Play failed: {e}", ok=False)
         return jsonify({"error": str(e)}), 500
 
 
@@ -901,6 +932,12 @@ def stop():
             streamer = None
         playback_info = None
         _notify_state()
+        current = device_manager.get_current_device() if device_manager else None
+        _record_activity(
+            "stop",
+            f"Stop on {_speaker_name(current)}",
+            speaker=_speaker_name(current),
+        )
 
         return jsonify({"status": "stopped"}), 200
 
@@ -994,6 +1031,61 @@ def _notify_devices():
         logger.debug(f"Failed to publish devices: {e}")
 
 
+def _client_label() -> str:
+    """
+    Name of the client that made the current request.
+
+    The web player sends X-Client-Name (URI-encoded, so non-ASCII names work);
+    otherwise fall back to the client IP.
+    """
+    try:
+        name = unquote(request.headers.get("X-Client-Name", ""))
+    except Exception:
+        name = ""
+    name = "".join(ch for ch in name if ch.isprintable()).strip()[:40]
+    if name:
+        return name
+    forwarded = request.headers.get("X-Forwarded-For", "")
+    return (forwarded.split(",")[0].strip() if forwarded else request.remote_addr) or "unknown"
+
+
+def _speaker_name(device: dict | None) -> str:
+    if not device:
+        return "no speaker"
+    return device.get("friendly_name") or device.get("ip") or "unknown speaker"
+
+
+def _station_name(url: str) -> str:
+    try:
+        return urlparse(url).hostname or url
+    except Exception:
+        return url
+
+
+def _record_activity(
+    action: str, message: str, ok: bool = True, client: str | None = None, **extra
+):
+    """Log a user action and broadcast it to all web players (kept in a short history)."""
+    try:
+        client = client or _client_label()
+    except RuntimeError:  # outside a request context
+        client = client or "server"
+    logger.info(f"[activity] {client}: {message}")
+    try:
+        event_broker.record_activity(
+            {
+                "time": datetime.now(UTC).isoformat(timespec="seconds"),
+                "client": client,
+                "action": action,
+                "message": message,
+                "ok": ok,
+                **extra,
+            }
+        )
+    except Exception as e:
+        logger.debug(f"Failed to publish activity: {e}")
+
+
 @app.route("/status", methods=["GET"])
 def status():
     """Get current playback status."""
@@ -1024,7 +1116,7 @@ def events():
         initial = [
             ("status", _build_status()),
             ("devices", {"devices": device_manager.get_cached_devices() if device_manager else []}),
-        ]
+        ] + [("activity", a) for a in event_broker.activity_history()]
     except Exception as e:
         event_broker.unsubscribe(q)
         logger.error(f"Error preparing event stream: {e}", exc_info=True)
