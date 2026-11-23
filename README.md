@@ -3,20 +3,21 @@
 [![Tests](https://github.com/rafalkalinski/stream-to-dlna/actions/workflows/tests.yml/badge.svg)](https://github.com/rafalkalinski/stream-to-dlna/actions/workflows/tests.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Docker](https://img.shields.io/docker/pulls/erkalina/stream-to-dlna.svg)](https://hub.docker.com/r/erkalina/stream-to-dlna)
-[![Version](https://img.shields.io/badge/version-v0.5.x-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-v0.6.x-blue.svg)](CHANGELOG.md)
 [![Security](https://img.shields.io/badge/security-reviewed-green.svg)](SECURITY.md)
 
 Stream internet radio to DLNA devices with automatic format detection and smart transcoding.
 
-**Latest:** v0.5 — mobile-first GUI and DLNA compatibility fixes for strict renderers (Samsung). See [CHANGELOG](CHANGELOG.md) for details.
+**Latest:** v0.6 — new web player GUI (now playing, speakers, stations, activity log). See [CHANGELOG](CHANGELOG.md) for details.
 
 ## Features
 
 ### Core Functionality
-- **Interactive Web Console** at `http://localhost:5000` - GUI for device management and API testing
-  - Mobile-first responsive layout with sticky action bar and collapsible sections
-  - Accordion state persisted across page reloads
-  - Enter key support for all input fields
+- **Web player** at `http://localhost:5000` — now playing card with Play/Stop, speaker picker with network scan, station list
+  - Responsive (phone and desktop), light and dark theme
+  - Live status polling (shows the real speaker state, transcoding mode and source format)
+  - Activity log panel with raw API requests/responses for debugging
+  - Optional API key entry in Settings (stored in the browser)
 - Network discovery with SSDP/UPnP
 - Smart transcoding: passthrough when device supports native format, FFmpeg when transcoding needed
   - Enhanced AAC codec detection (audio/aac, audio/aacp, audio/adts, audio/m4a)
@@ -72,7 +73,9 @@ The container needs to be on the same L2 network as your DLNA devices (SSDP disc
 
 #### Image updates
 
-`erkalina/stream-to-dlna:latest` is built by GitHub Actions on every push to `main` and **rebuilt monthly** from a fresh base image to pick up Debian security patches. Version tags (`v0.5`, ...) are published as separate image tags. Pull the image regularly to stay patched.
+`erkalina/stream-to-dlna:latest` is built by GitHub Actions on every push to `main` and **rebuilt monthly** from a fresh base image to pick up Debian security patches. Version tags (`v0.6`, ...) are published as separate image tags. Pull the image regularly to stay patched.
+
+Versioning: `MAJOR.MINOR` comes from the latest `vMAJOR.MINOR` git tag, `PATCH` is the number of changes merged into `main` since that tag (`scripts/version.sh`) — e.g. `v0.6` → `0.6.0`, next merge → `0.6.1`. The running version is shown in the web player.
 
 ### Build from source
 
@@ -124,7 +127,7 @@ pip install -r requirements-dev.txt
 # Run tests
 pytest
 
-# Open dev console in browser
+# Open the web player in browser
 open http://localhost:5000
 
 # Or use CLI:
@@ -278,9 +281,9 @@ See [SECURITY.md](SECURITY.md) for comprehensive security guide and deployment c
 
 ## API Reference
 
-### Development Console
+### Web Player
 
-Open `http://localhost:5000` in browser for interactive API testing UI.
+Open `http://localhost:5000` in a browser. The *Activity log* panel at the bottom shows every API request and its JSON response.
 
 ### Device Discovery
 
@@ -329,7 +332,7 @@ POST /stop
 ```bash
 GET /status
 ```
-Returns streaming status, DLNA device state, and current device info.
+Returns streaming status, DLNA device state, current device info, and — while streaming — the source stream (`stream.url`, `stream.transcoding`, `stream.format`).
 
 **Health check**
 ```bash

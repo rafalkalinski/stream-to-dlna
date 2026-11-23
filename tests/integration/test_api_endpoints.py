@@ -103,6 +103,52 @@ class TestStatusEndpoints:
         data = json.loads(response.data)
         assert "streaming" in data
         assert isinstance(data["streaming"], bool)
+        assert "stream" in data
+
+    def test_status_reports_current_stream(self, client, monkeypatch):
+        """GET /status includes source stream details while streaming."""
+        from unittest.mock import Mock
+
+        import app.main as main
+
+        running = Mock()
+        running.is_running.return_value = True
+        info = {"url": "http://radio.example/stream", "transcoding": True, "format": "audio/aac"}
+        monkeypatch.setattr(main, "streamer", running)
+        monkeypatch.setattr(main, "playback_info", info)
+        monkeypatch.setattr(main, "dlna_client", None)
+
+        data = json.loads(client.get("/status").data)
+        assert data["streaming"] is True
+        assert data["stream"] == info
+
+
+class TestIndex:
+    """Test web UI route."""
+
+    def test_index_renders_player(self, client):
+        """GET / serves the player UI with version."""
+        response = client.get("/")
+        assert response.status_code == 200
+        html = response.data.decode()
+        assert "<title>DLNA Radio</title>" in html
+        assert 'id="np-card"' in html
+        # API key field is only shown when auth is enabled (disabled in test config)
+        assert 'id="api-key"' not in html
+
+    def test_player_shows_api_key_field_when_auth_enabled(self, app):
+        """Player template renders the API key setting when auth is enabled."""
+        from flask import render_template
+
+        with app.test_request_context("/"):
+            html = render_template(
+                "player.html",
+                default_stream_url="",
+                default_device_ip="",
+                api_auth_enabled=True,
+                version="test",
+            )
+        assert 'id="api-key"' in html
 
 
 class TestErrorHandlers:

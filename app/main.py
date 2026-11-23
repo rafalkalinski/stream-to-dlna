@@ -75,6 +75,8 @@ def internal_error(error):
 # Global state
 config: Config | None = None
 streamer: AudioStreamer | PassthroughStreamer | None = None
+# Details of the current playback (source URL, mode, format) for /status
+playback_info: dict | None = None
 dlna_client: DLNAClient | None = None
 device_manager: DeviceManager | None = None
 stream_cache: StreamFormatCache | None = None
@@ -529,11 +531,12 @@ def initialize():
 
 @app.route("/", methods=["GET"])
 def index():
-    """Development console UI."""
+    """Web player UI."""
     return render_template(
-        "dev.html",
+        "player.html",
         default_stream_url=config.default_stream_url,
         default_device_ip=config.default_device_ip,
+        api_auth_enabled=config.api_auth_enabled,
         version=__version__,
     )
 
@@ -716,7 +719,7 @@ def device_current():
 @require_api_key(lambda: config)
 def play():
     """Start streaming radio to DLNA device with smart transcoding."""
-    global streamer, dlna_client
+    global streamer, dlna_client, playback_info
 
     try:
         # Get stream URL from query parameter or use default
@@ -843,6 +846,11 @@ def play():
         success = active_client.play_url(playback_url, mime_type=playback_mime)
 
         if success:
+            playback_info = {
+                "url": stream_url,
+                "transcoding": needs_transcoding,
+                "format": stream_format,
+            }
             return (
                 jsonify(
                     {
@@ -870,7 +878,7 @@ def play():
 @require_api_key(lambda: config)
 def stop():
     """Stop streaming."""
-    global streamer
+    global streamer, playback_info
 
     try:
         # Always stop DLNA playback (force cleanup)
@@ -884,6 +892,7 @@ def stop():
         if streamer:
             streamer.stop()
             streamer = None
+        playback_info = None
 
         return jsonify({"status": "stopped"}), 200
 
@@ -942,6 +951,7 @@ def status():
             "dlna": dlna_info,
             "current_device": device_info,
             "effective_state": effective_state,
+            "stream": playback_info if is_streaming else None,
         }
         if state_details:
             response["state_details"] = state_details

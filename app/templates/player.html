@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#f5f6f8" media="(prefers-color-scheme: light)">
+    <title>DLNA Radio</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <style>
+        :root {
+            --bg: #f5f6f8;
+            --surface: #ffffff;
+            --surface-2: #f0f2f5;
+            --border: #e2e5ea;
+            --text: #16181d;
+            --text-2: #5d6470;
+            --accent: #2f6fed;
+            --accent-text: #ffffff;
+            --accent-soft: rgba(47, 111, 237, 0.10);
+            --danger: #d64545;
+            --ok: #1f9d55;
+            --warn: #d68a00;
+            --shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.08);
+            --radius: 14px;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #0f1115;
+                --surface: #171a21;
+                --surface-2: #1f232c;
+                --border: #2a2f3a;
+                --text: #e8eaef;
+                --text-2: #9aa3b2;
+                --accent: #5b8cff;
+                --accent-text: #0b1020;
+                --accent-soft: rgba(91, 140, 255, 0.14);
+                --danger: #ff6b6b;
+                --ok: #3ccf7a;
+                --warn: #f2b33d;
+                --shadow: none;
+            }
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html { -webkit-text-size-adjust: 100%; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 15px;
+            line-height: 1.45;
+            min-height: 100vh;
+        }
+        button, input { font: inherit; color: inherit; }
+        button { cursor: pointer; border: none; background: none; }
+        button:disabled { cursor: not-allowed; opacity: 0.5; }
+        :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+        svg.icon { width: 20px; height: 20px; flex-shrink: 0; fill: none; stroke: currentColor;
+                   stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+        /* ── Top bar ── */
+        .topbar {
+            position: sticky; top: 0; z-index: 10;
+            display: flex; align-items: center; gap: 10px;
+            padding: 12px max(16px, env(safe-area-inset-left));
+            background: color-mix(in srgb, var(--bg) 85%, transparent);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border);
+        }
+        .brand { display: flex; align-items: center; gap: 10px; font-weight: 650; font-size: 17px; }
+        .brand img { width: 26px; height: 26px; }
+        .version { font-size: 12px; font-weight: 500; color: var(--text-2); }
+        .topbar .spacer { flex: 1; }
+        .icon-btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 38px; height: 38px; border-radius: 10px; color: var(--text-2);
+        }
+        .icon-btn:hover { background: var(--surface-2); color: var(--text); }
+
+        /* ── Layout ── */
+        .layout {
+            max-width: 1080px; margin: 0 auto;
+            padding: 16px max(16px, env(safe-area-inset-left)) 32px;
+            display: grid; gap: 16px;
+            grid-template-columns: minmax(0, 1fr);
+            grid-template-areas: "np" "speakers" "stations" "log";
+        }
+        @media (min-width: 880px) {
+            .layout {
+                padding-top: 24px; gap: 20px;
+                grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+                grid-template-areas: "np speakers" "stations log";
+                align-items: start;
+            }
+        }
+        #np-card { grid-area: np; }
+        #speakers-card { grid-area: speakers; }
+        #stations-card { grid-area: stations; }
+        #log-card { grid-area: log; }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 16px;
+            min-width: 0;
+        }
+        .card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+        .card-head h2 { font-size: 13px; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-2); flex: 1; }
+        .text-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 6px 10px; border-radius: 8px; font-size: 14px; font-weight: 550; color: var(--accent);
+        }
+        .text-btn:hover:not(:disabled) { background: var(--accent-soft); }
+        .text-btn svg.icon { width: 16px; height: 16px; }
+
+        /* ── Now playing ── */
+        .now-playing { padding: 20px; }
+        .np-top { display: flex; gap: 16px; align-items: center; }
+        .np-art {
+            width: 72px; height: 72px; border-radius: 12px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            background: var(--accent-soft); color: var(--accent);
+        }
+        .np-art svg.icon { width: 34px; height: 34px; }
+        .np-text { min-width: 0; flex: 1; }
+        .np-label { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--text-2); }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-2); flex-shrink: 0; }
+        .state-playing .dot { background: var(--ok); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ok) 20%, transparent); }
+        .state-starting .dot { background: var(--warn); animation: pulse 1s infinite; }
+        .state-error .dot { background: var(--danger); }
+        @keyframes pulse { 50% { opacity: 0.3; } }
+        .np-title { font-size: 22px; font-weight: 700; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .np-sub { display: flex; align-items: center; gap: 6px; color: var(--text-2); font-size: 14px; margin-top: 2px; }
+        .np-sub svg.icon { width: 16px; height: 16px; }
+        .np-sub span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+        .badges:empty { display: none; }
+        .badge {
+            font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px;
+            background: var(--surface-2); color: var(--text-2); border: 1px solid var(--border);
+        }
+        .np-detail { margin-top: 10px; font-size: 14px; color: var(--danger); }
+        .np-detail:empty { display: none; }
+        .main-btn {
+            margin-top: 16px; width: 100%; height: 52px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            font-size: 17px; font-weight: 650;
+            background: var(--accent); color: var(--accent-text);
+            transition: filter 0.15s, transform 0.05s;
+        }
+        .main-btn:hover:not(:disabled) { filter: brightness(1.08); }
+        .main-btn:active:not(:disabled) { transform: scale(0.99); }
+        .main-btn.stop { background: var(--danger); color: #fff; }
+        .main-btn svg.icon { fill: currentColor; stroke: none; width: 22px; height: 22px; }
+        .hint { margin-top: 8px; font-size: 13px; color: var(--text-2); text-align: center; }
+        .hint:empty { display: none; }
+
+        /* ── Lists ── */
+        .list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+        .row {
+            width: 100%; display: flex; align-items: center; gap: 12px;
+            padding: 10px 10px; border-radius: 10px; text-align: left;
+            border: 1px solid transparent;
+        }
+        .row:hover:not(:disabled) { background: var(--surface-2); }
+        .row.selected { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+        .row-icon {
+            width: 36px; height: 36px; border-radius: 9px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            background: var(--surface-2); color: var(--text-2);
+        }
+        .row.selected .row-icon { background: var(--accent); color: var(--accent-text); }
+        .row-text { flex: 1; min-width: 0; }
+        .row-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .row-meta { font-size: 13px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .row-end { font-size: 12px; color: var(--text-2); flex-shrink: 0; display: flex; align-items: center; gap: 8px; }
+        .radio-mark {
+            width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--border); flex-shrink: 0;
+        }
+        .row.selected .radio-mark { border: 5px solid var(--accent); }
+        .empty { padding: 14px 10px; color: var(--text-2); font-size: 14px; }
+
+        .eq { display: inline-flex; gap: 2px; align-items: flex-end; height: 14px; }
+        .eq i { width: 3px; background: var(--ok); border-radius: 1px; animation: eq 0.9s infinite ease-in-out; }
+        .eq i:nth-child(2) { animation-delay: -0.3s; }
+        .eq i:nth-child(3) { animation-delay: -0.6s; }
+        @keyframes eq { 0%, 100% { height: 4px; } 50% { height: 14px; } }
+
+        /* ── Inline forms ── */
+        .inline-form { display: flex; gap: 8px; margin-top: 12px; }
+        .inline-form input, .field input {
+            flex: 1; min-width: 0; height: 40px; padding: 0 12px; border-radius: 10px;
+            background: var(--surface-2); border: 1px solid var(--border);
+        }
+        .inline-form input:focus, .field input:focus { outline: none; border-color: var(--accent); }
+        .field input { flex: none; width: 100%; }
+        .btn {
+            height: 40px; padding: 0 16px; border-radius: 10px; font-weight: 600;
+            background: var(--surface-2); border: 1px solid var(--border);
+            display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+        }
+        .btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+        .btn.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+        .btn.primary:hover:not(:disabled) { filter: brightness(1.08); color: var(--accent-text); }
+        details.more { margin-top: 8px; }
+        details.more > summary {
+            cursor: pointer; list-style: none; font-size: 14px; color: var(--text-2); padding: 6px 2px;
+        }
+        details.more > summary::-webkit-details-marker { display: none; }
+        details.more > summary:hover { color: var(--accent); }
+
+        /* ── Log ── */
+        #log-card { padding: 0; }
+        #log-card > details > summary {
+            list-style: none; cursor: pointer; padding: 14px 16px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        #log-card > details > summary::-webkit-details-marker { display: none; }
+        #log-card summary h2 { font-size: 13px; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-2); flex: 1; }
+        #log-card summary .chev { transition: transform 0.2s; color: var(--text-2); }
+        #log-card details[open] summary .chev { transform: rotate(180deg); }
+        .log-body { border-top: 1px solid var(--border); max-height: 420px; overflow-y: auto; }
+        .log-entry { border-bottom: 1px solid var(--border); }
+        .log-entry:last-child { border-bottom: none; }
+        .log-entry summary {
+            list-style: none; cursor: pointer; padding: 8px 16px;
+            display: flex; gap: 10px; align-items: baseline; font-size: 13px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        }
+        .log-entry summary::-webkit-details-marker { display: none; }
+        .log-entry summary:hover { background: var(--surface-2); }
+        .log-time { color: var(--text-2); flex-shrink: 0; }
+        .log-req { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .log-status { font-weight: 700; flex-shrink: 0; }
+        .log-status.ok { color: var(--ok); }
+        .log-status.err { color: var(--danger); }
+        .log-entry pre {
+            margin: 0 16px 10px; padding: 10px; border-radius: 8px; background: var(--surface-2);
+            font-size: 12px; line-height: 1.5; overflow-x: auto; white-space: pre-wrap; word-break: break-word;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        }
+        .log-empty { padding: 14px 16px; color: var(--text-2); font-size: 14px; }
+
+        /* ── Settings dialog ── */
+        dialog {
+            margin: auto; border: 1px solid var(--border); border-radius: var(--radius);
+            background: var(--surface); color: var(--text);
+            width: min(440px, calc(100vw - 32px)); padding: 20px;
+        }
+        dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
+        dialog h2 { font-size: 18px; margin-bottom: 14px; display: flex; align-items: center; }
+        dialog h2 span { flex: 1; }
+        .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+        .field label { font-size: 13px; font-weight: 600; color: var(--text-2); }
+        .field small { font-size: 12px; color: var(--text-2); }
+        .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+        .links { display: flex; flex-wrap: wrap; gap: 16px; padding-top: 14px; margin-top: 14px; border-top: 1px solid var(--border); font-size: 14px; }
+        .links a { color: var(--accent); text-decoration: none; }
+        .links a:hover { text-decoration: underline; }
+        .links .version { margin-left: auto; }
+
+        /* ── Toasts ── */
+        .toasts {
+            position: fixed; left: 50%; transform: translateX(-50%); z-index: 50;
+            bottom: max(16px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 8px;
+            width: min(420px, calc(100vw - 32px)); pointer-events: none;
+        }
+        .toast {
+            padding: 12px 14px; border-radius: 10px; font-size: 14px; pointer-events: auto;
+            background: var(--text); color: var(--bg); box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+            animation: toast-in 0.2s ease-out;
+        }
+        .toast.error { background: var(--danger); color: #fff; }
+        @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
+
+        .spin { animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    </style>
+</head>
+<body>
+    <!-- Icon sprite -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12.5-7.5a1 1 0 0 0 0-1.72L8.5 3.64A1 1 0 0 0 7 4.5z"/></symbol>
+        <symbol id="i-stop" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/></symbol>
+        <symbol id="i-radio" viewBox="0 0 24 24"><path d="M4.9 19.1a10 10 0 0 1 0-14.2M7.8 16.2a6 6 0 0 1 0-8.4M16.2 7.8a6 6 0 0 1 0 8.4M19.1 4.9a10 10 0 0 1 0 14.2"/><circle cx="12" cy="12" r="2"/></symbol>
+        <symbol id="i-speaker" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="14" r="4"/><path d="M12 6h.01"/></symbol>
+        <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></symbol>
+        <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+        <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol>
+        <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+        <symbol id="i-close" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+        <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></symbol>
+    </svg>
+
+    <header class="topbar">
+        <div class="brand">
+            <img src="/static/favicon.svg" alt="">
+            <span>DLNA Radio</span>
+            <span class="version">v{{ version }}</span>
+        </div>
+        <div class="spacer"></div>
+        <button class="icon-btn" id="settings-btn" title="{{ 'Settings' if api_auth_enabled else 'About' }}" aria-label="{{ 'Settings' if api_auth_enabled else 'About' }}">
+            <svg class="icon"><use href="#i-{{ 'gear' if api_auth_enabled else 'info' }}"/></svg>
+        </button>
+    </header>
+
+    <main class="layout">
+        <!-- Now playing -->
+        <section class="card now-playing state-idle" id="np-card" aria-live="polite">
+            <div class="np-top">
+                <div class="np-art"><svg class="icon"><use href="#i-radio"/></svg></div>
+                <div class="np-text">
+                    <div class="np-label"><span class="dot"></span><span id="np-state">Connecting…</span></div>
+                    <div class="np-title" id="np-title">—</div>
+                    <div class="np-sub"><svg class="icon"><use href="#i-speaker"/></svg><span id="np-device">—</span></div>
+                </div>
+            </div>
+            <div class="badges" id="np-badges"></div>
+            <div class="np-detail" id="np-detail"></div>
+            <button class="main-btn" id="main-btn" disabled>
+                <svg class="icon"><use href="#i-play"/></svg><span>Play</span>
+            </button>
+            <div class="hint" id="np-hint"></div>
+        </section>
+
+        <!-- Speakers -->
+        <section class="card" id="speakers-card">
+            <div class="card-head">
+                <h2>Speakers</h2>
+                <button class="text-btn" id="scan-btn" title="Scan the network for DLNA speakers">
+                    <svg class="icon"><use href="#i-refresh"/></svg><span>Scan</span>
+                </button>
+            </div>
+            <ul class="list" id="device-list"><li class="empty">Loading…</li></ul>
+            <details class="more">
+                <summary>Add speaker by IP address…</summary>
+                <form class="inline-form" id="ip-form">
+                    <label class="sr-only" for="ip-input">Speaker IP address</label>
+                    <input id="ip-input" inputmode="decimal" placeholder="192.168.1.100" value="{{ default_device_ip }}" autocomplete="off">
+                    <button class="btn" type="submit">Connect</button>
+                </form>
+            </details>
+        </section>
+
+        <!-- Stations -->
+        <section class="card" id="stations-card">
+            <div class="card-head"><h2>Stations</h2></div>
+            <ul class="list" id="station-list"><li class="empty">Loading…</li></ul>
+            <form class="inline-form" id="url-form">
+                <label class="sr-only" for="url-input">Stream URL</label>
+                <input id="url-input" type="url" placeholder="Play a stream URL…" autocomplete="off">
+                <button class="btn primary" type="submit"><svg class="icon" style="fill:currentColor;stroke:none;width:16px;height:16px"><use href="#i-play"/></svg>Play</button>
+            </form>
+        </section>
+
+        <!-- Activity log -->
+        <section class="card" id="log-card">
+            <details id="log-details">
+                <summary>
+                    <svg class="icon" style="color:var(--text-2)"><use href="#i-list"/></svg>
+                    <h2>Activity log <span id="log-count"></span></h2>
+                    <button class="text-btn" id="log-clear" type="button">Clear</button>
+                    <svg class="icon chev"><use href="#i-chevron"/></svg>
+                </summary>
+                <div class="log-body" id="log-list"><div class="log-empty">No requests yet.</div></div>
+            </details>
+        </section>
+    </main>
+
+    <dialog id="settings">
+        <form method="dialog" id="settings-form">
+            <h2><span>{{ 'Settings' if api_auth_enabled else 'About' }}</span>
+                <button class="icon-btn" value="cancel" formnovalidate aria-label="Close"><svg class="icon"><use href="#i-close"/></svg></button>
+            </h2>
+            {% if api_auth_enabled %}
+            <div class="field">
+                <label for="api-key">API key</label>
+                <input id="api-key" type="password" autocomplete="off" placeholder="Not set">
+                <small>API authentication is enabled on this server. The key is stored in this browser only.</small>
+            </div>
+            <div class="dialog-actions">
+                <button class="btn" value="cancel" formnovalidate>Cancel</button>
+                <button class="btn primary" value="save" id="settings-save">Save</button>
+            </div>
+            {% endif %}
+            <div class="links">
+                <a href="https://github.com/rafalkalinski/stream-to-dlna" target="_blank" rel="noopener">GitHub</a>
+                <a href="https://hub.docker.com/r/erkalina/stream-to-dlna" target="_blank" rel="noopener">Docker Hub</a>
+                <span class="version">v{{ version }}</span>
+            </div>
+        </form>
+    </dialog>
+
+    <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+
+    <script>
+    (() => {
+        'use strict';
+
+        const DEFAULT_STREAM = {{ default_stream_url | tojson }};
+        const POLL_MS = 5000;
+        const LOG_LIMIT = 100;
+
+        const $ = (id) => document.getElementById(id);
+        const store = {
+            get(key) { try { return localStorage.getItem(key); } catch { return null; } },
+            set(key, val) { try { val == null ? localStorage.removeItem(key) : localStorage.setItem(key, val); } catch {} },
+        };
+
+        const state = {
+            status: null,          // last /status response
+            devices: [],           // cached device list
+            currentIp: null,       // selected device IP
+            currentName: null,
+            stations: [],          // [{url, format}]
+            selectedUrl: store.get('lastStreamUrl') || DEFAULT_STREAM || '',
+            busy: false,           // play/stop in flight
+            pendingIp: null,       // device being selected
+        };
+
+        // ── Helpers ──────────────────────────────────────────────
+        function el(tag, props = {}, ...children) {
+            const node = document.createElement(tag);
+            for (const [k, v] of Object.entries(props)) {
+                if (k === 'class') node.className = v;
+                else if (k === 'text') node.textContent = v;
+                else if (k.startsWith('on')) node.addEventListener(k.slice(2), v);
+                else if (v !== false && v != null) node.setAttribute(k, v === true ? '' : v);
+            }
+            for (const c of children) if (c != null) node.append(c);
+            return node;
+        }
+        function icon(name, extra = '') {
+            const ns = 'http://www.w3.org/2000/svg';
+            const svg = document.createElementNS(ns, 'svg');
+            svg.setAttribute('class', 'icon ' + extra);
+            const use = document.createElementNS(ns, 'use');
+            use.setAttribute('href', '#i-' + name);
+            svg.append(use);
+            return svg;
+        }
+        function eq() { return el('span', { class: 'eq', 'aria-label': 'Playing' }, el('i'), el('i'), el('i')); }
+
+        function stationName(url) {
+            try {
+                const host = new URL(url).hostname;
+                return host.replace(/^(www|stream|streams|live|listen|radio|icecast\d*|ice\d*)\./i, '');
+            } catch { return url; }
+        }
+        function formatLabel(mime) {
+            if (!mime) return null;
+            const sub = String(mime).split('/').pop().toLowerCase();
+            const map = { mpeg: 'MP3', mp3: 'MP3', aacp: 'AAC+', 'x-flac': 'FLAC', 'x-wav': 'WAV', ogg: 'OGG' };
+            return map[sub] || sub.toUpperCase();
+        }
+
+        function toast(message, type = 'info', ms = 4000) {
+            const t = el('div', { class: 'toast ' + type, text: message });
+            $('toasts').append(t);
+            setTimeout(() => t.remove(), ms);
+        }
+
+        // ── API + activity log ──────────────────────────────────
+        const logEntries = [];
+        async function api(method, path, { quiet = false } = {}) {
+            const headers = {};
+            const key = store.get('apiKey');
+            if (key) headers['X-API-Key'] = key;
+            let status = 0, data = null;
+            try {
+                const res = await fetch(path, { method, headers });
+                status = res.status;
+                const text = await res.text();
+                try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+            } catch (err) {
+                data = { error: 'Network error: ' + err.message };
+            }
+            const ok = status >= 200 && status < 300;
+            if (!quiet || !ok) addLog(method, path, status, ok, data);
+            if (status === 401) toast('API key required — set it in Settings (gear icon).', 'error');
+            return { ok, status, data };
+        }
+        function errorText(res) {
+            const d = res.data || {};
+            return d.message || d.error || ('Request failed (' + (res.status || 'network') + ')');
+        }
+
+        function addLog(method, path, status, ok, data) {
+            logEntries.unshift({ time: new Date(), method, path, status, ok, data });
+            if (logEntries.length > LOG_LIMIT) logEntries.pop();
+            renderLog();
+        }
+        function renderLog() {
+            const list = $('log-list');
+            list.replaceChildren();
+            $('log-count').textContent = logEntries.length ? `(${logEntries.length})` : '';
+            if (!logEntries.length) { list.append(el('div', { class: 'log-empty', text: 'No requests yet.' })); return; }
+            for (const e of logEntries) {
+                const time = e.time.toLocaleTimeString([], { hour12: false });
+                list.append(el('details', { class: 'log-entry' },
+                    el('summary', {},
+                        el('span', { class: 'log-time', text: time }),
+                        el('span', { class: 'log-req', text: `${e.method} ${decodeURIComponent(e.path)}` }),
+                        el('span', { class: 'log-status ' + (e.ok ? 'ok' : 'err'), text: e.status || 'ERR' })),
+                    el('pre', { text: typeof e.data === 'string' ? e.data : JSON.stringify(e.data, null, 2) })));
+            }
+        }
+        $('log-clear').addEventListener('click', (ev) => {
+            ev.preventDefault(); ev.stopPropagation();
+            logEntries.length = 0; renderLog();
+        });
+
+        // ── Now playing ─────────────────────────────────────────
+        const STATE_LABELS = { playing: 'Now playing', starting: 'Starting…', error: 'Problem', idle: 'Ready' };
+
+        function renderNowPlaying() {
+            const s = state.status;
+            const card = $('np-card');
+            const effective = state.busy === 'play' ? 'starting' : (s ? s.effective_state : 'idle');
+            card.className = 'card now-playing state-' + effective;
+
+            const streaming = !!(s && s.streaming);
+            const playingUrl = streaming && s.stream ? s.stream.url : null;
+
+            $('np-state').textContent = s ? (STATE_LABELS[effective] || effective) : 'Connecting…';
+            const titleUrl = playingUrl || state.selectedUrl;
+            $('np-title').textContent = titleUrl ? stationName(titleUrl) : 'No station selected';
+            $('np-title').title = titleUrl || '';
+
+            const deviceName = (s && s.current_device && s.current_device.friendly_name) || state.currentName;
+            $('np-device').textContent = deviceName || 'No speaker selected';
+
+            const badges = $('np-badges');
+            badges.replaceChildren();
+            if (s && s.stream && streaming) {
+                const fmt = formatLabel(s.stream.format);
+                if (s.stream.transcoding) badges.append(el('span', { class: 'badge', text: (fmt ? fmt + ' → ' : '') + 'MP3 transcoding' }));
+                else badges.append(el('span', { class: 'badge', text: 'Direct' + (fmt ? ' · ' + fmt : '') }));
+            }
+            if (s && s.dlna && s.dlna.state && (streaming || effective === 'error')) badges.append(el('span', { class: 'badge', text: 'Speaker: ' + s.dlna.state.toLowerCase().replace(/_/g, ' ') }));
+
+            $('np-detail').textContent = (s && s.state_details) || '';
+
+            const btn = $('main-btn');
+            const showStop = streaming || state.busy === 'stop';
+            btn.classList.toggle('stop', showStop);
+            btn.replaceChildren(icon(showStop ? 'stop' : 'play'), el('span', { text: state.busy === 'play' ? 'Starting…' : state.busy === 'stop' ? 'Stopping…' : showStop ? 'Stop' : 'Play' }));
+            const hasDevice = !!(deviceName || state.currentIp);
+            btn.disabled = !!state.busy || (!showStop && (!hasDevice || !state.selectedUrl));
+            $('np-hint').textContent = !s || showStop ? '' : !hasDevice ? 'Pick a speaker to start.' : !state.selectedUrl ? 'Pick a station to start.' : '';
+        }
+
+        async function refreshStatus() {
+            const res = await api('GET', '/status', { quiet: true });
+            if (res.ok) state.status = res.data;
+            renderNowPlaying();
+            renderStations();
+        }
+
+        async function play(url) {
+            if (state.busy) return;
+            if (!state.currentIp && !(state.status && state.status.current_device)) {
+                toast('Pick a speaker first.', 'error'); return;
+            }
+            state.selectedUrl = url;
+            store.set('lastStreamUrl', url);
+            state.busy = 'play';
+            renderNowPlaying(); renderStations();
+            const res = await api('POST', '/play?streamUrl=' + encodeURIComponent(url));
+            state.busy = false;
+            if (!res.ok) toast(errorText(res), 'error');
+            await refreshStatus();
+            loadStations();
+            // Speakers often report TRANSITIONING for a moment; re-check shortly
+            setTimeout(refreshStatus, 2500);
+        }
+
+        async function stop() {
+            if (state.busy) return;
+            state.busy = 'stop';
+            renderNowPlaying();
+            const res = await api('POST', '/stop');
+            state.busy = false;
+            if (!res.ok) toast(errorText(res), 'error');
+            await refreshStatus();
+        }
+
+        $('main-btn').addEventListener('click', () => {
+            if (state.status && state.status.streaming) stop();
+            else if (state.selectedUrl) play(state.selectedUrl);
+        });
+
+        // ── Speakers ────────────────────────────────────────────
+        function renderDevices() {
+            const list = $('device-list');
+            list.replaceChildren();
+            if (!state.devices.length) {
+                list.append(el('li', { class: 'empty', text: 'No speakers found yet. Try Scan, or add one by IP.' }));
+                return;
+            }
+            for (const d of state.devices) {
+                const selected = d.ip === state.currentIp;
+                const pending = d.ip === state.pendingIp;
+                const meta = [d.manufacturer, d.model_name].filter(Boolean).join(' ');
+                list.append(el('li', {},
+                    el('button', {
+                        class: 'row' + (selected ? ' selected' : ''),
+                        'aria-pressed': selected ? 'true' : 'false',
+                        disabled: !!state.pendingIp,
+                        onclick: () => selectDevice(d.ip),
+                    },
+                        el('span', { class: 'row-icon' }, icon('speaker')),
+                        el('span', { class: 'row-text' },
+                            el('div', { class: 'row-title', text: d.friendly_name || d.ip }),
+                            el('div', { class: 'row-meta', text: (meta ? meta + ' · ' : '') + d.ip })),
+                        el('span', { class: 'row-end' }, pending ? icon('refresh', 'spin') : el('span', { class: 'radio-mark' })))));
+            }
+        }
+
+        async function loadDevices() {
+            const [list, current] = await Promise.all([
+                api('GET', '/devices?force_scan=false', { quiet: true }),
+                api('GET', '/devices/current', { quiet: true }),
+            ]);
+            if (list.ok) state.devices = list.data.devices || [];
+            if (current.ok && current.data.device) {
+                state.currentIp = current.data.device.ip;
+                state.currentName = current.data.device.friendly_name;
+                if (!state.devices.some(d => d.ip === state.currentIp)) state.devices.unshift(current.data.device);
+            }
+            renderDevices(); renderNowPlaying();
+        }
+
+        async function scanDevices() {
+            const btn = $('scan-btn');
+            btn.disabled = true;
+            btn.replaceChildren(icon('refresh', 'spin'), el('span', { text: 'Scanning…' }));
+            const res = await api('GET', '/devices?force_scan=true&timeout=5');
+            btn.disabled = false;
+            btn.replaceChildren(icon('refresh'), el('span', { text: 'Scan' }));
+            if (!res.ok) { toast(errorText(res), 'error'); return; }
+            state.devices = res.data.devices || [];
+            if (state.currentIp && !state.devices.some(d => d.ip === state.currentIp) && state.currentName) {
+                state.devices.unshift({ ip: state.currentIp, friendly_name: state.currentName });
+            }
+            renderDevices();
+            toast(`Found ${state.devices.length} speaker${state.devices.length === 1 ? '' : 's'}.`);
+        }
+
+        async function selectDevice(ip) {
+            if (state.pendingIp || ip === state.currentIp) return;
+            state.pendingIp = ip;
+            renderDevices();
+            const res = await api('POST', '/devices/select?ip=' + encodeURIComponent(ip));
+            state.pendingIp = null;
+            if (res.ok) {
+                const d = res.data.device;
+                state.currentIp = d.ip;
+                state.currentName = d.friendly_name;
+                if (!state.devices.some(x => x.ip === d.ip)) state.devices.unshift(d);
+                if (state.status && state.status.streaming) toast('Speaker changed — press Play to move the stream to ' + (d.friendly_name || d.ip) + '.');
+            } else {
+                toast(errorText(res), 'error');
+            }
+            renderDevices();
+            refreshStatus();
+        }
+
+        $('scan-btn').addEventListener('click', scanDevices);
+        $('ip-form').addEventListener('submit', (ev) => {
+            ev.preventDefault();
+            const ip = $('ip-input').value.trim();
+            if (ip) selectDevice(ip);
+        });
+
+        // ── Stations ────────────────────────────────────────────
+        function renderStations() {
+            const list = $('station-list');
+            list.replaceChildren();
+            const s = state.status;
+            const playingUrl = s && s.streaming && s.stream ? s.stream.url : null;
+            const stations = [...state.stations];
+            for (const url of [playingUrl, state.selectedUrl]) {
+                if (url && !stations.some(x => x.url === url)) stations.push({ url, format: null });
+            }
+            if (!stations.length) {
+                list.append(el('li', { class: 'empty', text: 'No stations yet. Paste a stream URL below.' }));
+                return;
+            }
+            for (const st of stations) {
+                const isPlaying = st.url === playingUrl;
+                const isSelected = isPlaying || (!playingUrl && st.url === state.selectedUrl);
+                const fmt = formatLabel(st.format);
+                list.append(el('li', {},
+                    el('button', {
+                        class: 'row' + (isSelected ? ' selected' : ''),
+                        title: st.url,
+                        disabled: !!state.busy,
+                        onclick: () => isPlaying ? null : play(st.url),
+                    },
+                        el('span', { class: 'row-icon' }, icon('radio')),
+                        el('span', { class: 'row-text' },
+                            el('div', { class: 'row-title', text: stationName(st.url) }),
+                            el('div', { class: 'row-meta', text: st.url === DEFAULT_STREAM ? 'Default station' : (isPlaying ? 'Playing' : 'Tap to play') })),
+                        el('span', { class: 'row-end' }, fmt ? el('span', { text: fmt }) : null, isPlaying ? eq() : null))));
+            }
+        }
+
+        async function loadStations() {
+            const res = await api('GET', '/streams/cached', { quiet: true });
+            const cached = res.ok ? (res.data.streams || []) : [];
+            const stations = [];
+            if (DEFAULT_STREAM) stations.push({ url: DEFAULT_STREAM, format: null });
+            for (const c of cached) {
+                if (!c.url) continue;
+                const existing = stations.find(x => x.url === c.url);
+                if (existing) existing.format = existing.format || c.mime_type;
+                else stations.push({ url: c.url, format: c.mime_type });
+            }
+            state.stations = stations;
+            renderStations();
+        }
+
+        $('url-form').addEventListener('submit', (ev) => {
+            ev.preventDefault();
+            const url = $('url-input').value.trim();
+            if (!url) return;
+            $('url-input').value = '';
+            play(url);
+        });
+
+        // ── Settings ────────────────────────────────────────────
+        const dialog = $('settings');
+        const apiKeyInput = $('api-key');  // only rendered when API auth is enabled
+        $('settings-btn').addEventListener('click', () => {
+            if (apiKeyInput) apiKeyInput.value = store.get('apiKey') || '';
+            dialog.showModal();
+        });
+        dialog.addEventListener('close', () => {
+            if (apiKeyInput && dialog.returnValue === 'save') {
+                const key = $('api-key').value.trim();
+                store.set('apiKey', key || null);
+                toast(key ? 'API key saved.' : 'API key cleared.');
+            }
+        });
+
+        // ── Polling ─────────────────────────────────────────────
+        let timer = null;
+        function startPolling() {
+            clearInterval(timer);
+            timer = setInterval(() => { if (!state.busy) refreshStatus(); }, POLL_MS);
+        }
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) { clearInterval(timer); }
+            else { refreshStatus(); startPolling(); }
+        });
+
+        // Remember whether the log is expanded
+        const logDetails = $('log-details');
+        if (store.get('logOpen') === '1') logDetails.open = true;
+        logDetails.addEventListener('toggle', () => store.set('logOpen', logDetails.open ? '1' : '0'));
+
+        renderNowPlaying();
+        loadDevices();
+        loadStations();
+        refreshStatus();
+        startPolling();
+    })();
+    </script>
+</body>
+</html>

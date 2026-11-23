@@ -26,14 +26,12 @@ jobs:
           fetch-depth: 0
 
       - name: Compute APP_VERSION
-        # Same scheme as deploy.sh: MAJOR.MINOR from latest vX.Y tag, patch = commits since tag
+        # MAJOR.MINOR from latest vX.Y tag, PATCH = merged changes on main since (scripts/version.sh)
         id: version
         run: |
-          desc=$(git describe --tags --long --match 'v*' 2>/dev/null || echo "v0.0-0-g0000000")
-          major_minor=$(echo "$desc" | sed 's/-[0-9]*-g[0-9a-f]*$//' | sed 's/^v//')
-          patch=$(echo "$desc" | sed 's/.*-\([0-9]*\)-g[0-9a-f]*$/\1/')
-          echo "app_version=${major_minor}.${patch}" >> "$GITHUB_OUTPUT"
-          echo "APP_VERSION=${major_minor}.${patch}"
+          v=$(scripts/version.sh)
+          echo "app_version=$v" >> "$GITHUB_OUTPUT"
+          echo "APP_VERSION=$v"
 
       - name: Set up Docker Buildx
         # Configures the advanced Docker build engine

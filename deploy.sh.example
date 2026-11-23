@@ -9,18 +9,14 @@
 #   ./deploy.sh -d      # stop old container and start new one
 #   ./deploy.sh -b -d   # build then deploy in one go
 #
-# Version is calculated automatically from git tags (vMAJOR.MINOR format)
-# and baked into the image at build time as APP_VERSION.
-# To bump the version: git tag v0.6 <commit>
+# Version is calculated by scripts/version.sh from git tags (vMAJOR.MINOR)
+# and baked into the image at build time as APP_VERSION. PATCH = number of
+# changes merged into main since the tag. To bump MAJOR.MINOR: git tag v0.7 <commit>
 
 export DOCKER_BUILDKIT=1
 export COMPOSE_DOCKER_CLI_BUILD=1
 
-# Calculate version from git tags: vMAJOR.MINOR tag + commits since = patch
-_desc=$(git describe --tags --long 2>/dev/null || echo "v0.0-0-g0000000")
-_major_minor=$(echo "$_desc" | sed 's/-[0-9]*-g[0-9a-f]*$//' | sed 's/^v//')
-_patch=$(echo "$_desc" | sed 's/.*-\([0-9]*\)-g[0-9a-f]*$/\1/')
-APP_VERSION="${_major_minor}.${_patch}"
+APP_VERSION=$(scripts/version.sh)
 export APP_VERSION
 
 # Compose file for building the image (uses Dockerfile in this directory)

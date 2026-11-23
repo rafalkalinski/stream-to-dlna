@@ -5,11 +5,11 @@
 
 Stream internet radio to DLNA devices with automatic format detection and smart transcoding.
 
-**Latest:** v0.5 - See [CHANGELOG](https://github.com/rafalkalinski/stream-to-dlna/blob/main/CHANGELOG.md) for release notes.
+**Latest:** v0.6 - See [CHANGELOG](https://github.com/rafalkalinski/stream-to-dlna/blob/main/CHANGELOG.md) for release notes.
 
 ## Features
 
-- **Interactive Web Console** at `http://localhost:5000` - test API endpoints and manage devices
+- **Web player** at `http://localhost:5000` - play/stop, pick speakers and stations, activity log
 - **Automatic DLNA device discovery** via SSDP/UPnP
 - **Smart transcoding**: passthrough when device supports native format, FFmpeg transcoding when needed
 - **Auto-select default device** on startup via `dlna.default_device_ip` config
@@ -72,13 +72,13 @@ security:
 
 Device configuration is done via API.
 
-## Web Console
+## Web Player
 
-Open `http://localhost:5000` in your browser for the **interactive development console**:
-- Device discovery and selection
-- Playback control (play/stop)
-- Status monitoring
-- Real-time API output
+Open `http://localhost:5000` in your browser:
+- Now playing card with Play/Stop and live speaker status
+- Speaker list with network scan (or add by IP)
+- Station list (default + previously played streams) and ad-hoc stream URL
+- Activity log with raw API requests/responses
 
 Or use CLI/API directly:
 
@@ -106,6 +106,7 @@ curl -X POST http://localhost:5000/stop
 
 ## Version History
 
+- **v0.6** - New web player GUI, live status, monthly security rebuilds of the image
 - **v0.5** - Mobile-first GUI, DLNA compliance fixes for Samsung/strict renderers, auto-versioning from git tags
 - **v0.4** - Default device auto-select, stream format caching, enhanced AAC detection
 - **v0.3** - Security features (API auth, rate limiting), reliability improvements
