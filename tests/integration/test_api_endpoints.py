@@ -103,6 +103,36 @@ class TestStatusEndpoints:
         data = json.loads(response.data)
         assert "streaming" in data
         assert isinstance(data["streaming"], bool)
+        assert "stream" in data
+
+    def test_status_reports_current_stream(self, client, monkeypatch):
+        """GET /status includes source stream details while streaming."""
+        from unittest.mock import Mock
+
+        import app.main as main
+
+        running = Mock()
+        running.is_running.return_value = True
+        info = {"url": "http://radio.example/stream", "transcoding": True, "format": "audio/aac"}
+        monkeypatch.setattr(main, "streamer", running)
+        monkeypatch.setattr(main, "playback_info", info)
+        monkeypatch.setattr(main, "dlna_client", None)
+
+        data = json.loads(client.get("/status").data)
+        assert data["streaming"] is True
+        assert data["stream"] == info
+
+
+class TestIndex:
+    """Test web UI route."""
+
+    def test_index_renders_player(self, client):
+        """GET / serves the player UI with version."""
+        response = client.get("/")
+        assert response.status_code == 200
+        html = response.data.decode()
+        assert "<title>DLNA Radio</title>" in html
+        assert 'id="np-card"' in html
 
 
 class TestErrorHandlers:

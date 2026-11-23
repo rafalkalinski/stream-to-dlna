@@ -13,10 +13,11 @@ Stream internet radio to DLNA devices with automatic format detection and smart 
 ## Features
 
 ### Core Functionality
-- **Interactive Web Console** at `http://localhost:5000` - GUI for device management and API testing
-  - Mobile-first responsive layout with sticky action bar and collapsible sections
-  - Accordion state persisted across page reloads
-  - Enter key support for all input fields
+- **Web player** at `http://localhost:5000` — now playing card with Play/Stop, speaker picker with network scan, station list
+  - Responsive (phone and desktop), light and dark theme
+  - Live status polling (shows the real speaker state, transcoding mode and source format)
+  - Activity log panel with raw API requests/responses for debugging
+  - Optional API key entry in Settings (stored in the browser)
 - Network discovery with SSDP/UPnP
 - Smart transcoding: passthrough when device supports native format, FFmpeg when transcoding needed
   - Enhanced AAC codec detection (audio/aac, audio/aacp, audio/adts, audio/m4a)
@@ -124,7 +125,7 @@ pip install -r requirements-dev.txt
 # Run tests
 pytest
 
-# Open dev console in browser
+# Open the web player in browser
 open http://localhost:5000
 
 # Or use CLI:
@@ -278,9 +279,9 @@ See [SECURITY.md](SECURITY.md) for comprehensive security guide and deployment c
 
 ## API Reference
 
-### Development Console
+### Web Player
 
-Open `http://localhost:5000` in browser for interactive API testing UI.
+Open `http://localhost:5000` in a browser. The *Activity log* panel at the bottom shows every API request and its JSON response.
 
 ### Device Discovery
 
@@ -329,7 +330,7 @@ POST /stop
 ```bash
 GET /status
 ```
-Returns streaming status, DLNA device state, and current device info.
+Returns streaming status, DLNA device state, current device info, and — while streaming — the source stream (`stream.url`, `stream.transcoding`, `stream.format`).
 
 **Health check**
 ```bash

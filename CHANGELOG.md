@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **New web player GUI** replacing the API dev console: now playing card with live status, speaker picker with scan / add by IP, station list, activity log panel with raw API responses, API key setting, light/dark theme
+- `/status` now includes `stream` (`url`, `transcoding`, `format`) while streaming
+
 ### Fixed
 - **Live-stream DLNA flags**: streaming server now sends `DLNA.ORG_OP=00` and live-stream `DLNA.ORG_FLAGS=8D100000` (instead of seekable-content flags) in `contentFeatures.dlna.org`
 - **Security**: patched CVEs in dependencies; `urllib3>=2.8.0` (CVE-2026-97689)

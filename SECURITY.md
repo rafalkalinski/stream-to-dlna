@@ -108,34 +108,11 @@ curl -X POST http://localhost:5000/play \
 
 **Rationale:** Only state-changing operations require authentication. Read-only monitoring endpoints remain public for health checks and dashboards.
 
-#### Web Console Limitations
+#### Web Player and API Keys
 
-**IMPORTANT:** The web console at `GET /` does NOT support API key authentication.
+The web player at `GET /` is always served without authentication. When `api_auth_enabled: true`, enter the key in the player's **Settings** (gear icon) — it is stored in that browser's `localStorage` and sent as the `X-API-Key` header with Play, Stop and speaker selection. Without it, those actions fail with `401 Unauthorized` and the player shows a hint.
 
-When `api_auth_enabled: true`:
-- Web console loads normally (public endpoint)
-- Read-only features work (device list, status)
-- State-changing buttons FAIL with `401 Unauthorized`:
-  - "Select Device" button (POST /devices/select)
-  - "Play" button (POST /play)
-  - "Stop" button (POST /stop)
-
-**Solutions:**
-1. **Home network (default)**: Keep `api_auth_enabled: false` and use web console freely
-2. **Production**: Enable authentication and use `curl` or API clients:
-   ```bash
-   # Select device
-   curl -X POST "http://localhost:5000/devices/select?ip=192.168.1.100" \
-     -H "X-API-Key: your-key"
-
-   # Play stream
-   curl -X POST "http://localhost:5000/play?streamUrl=http://stream-url.com" \
-     -H "X-API-Key: your-key"
-
-   # Stop playback
-   curl -X POST http://localhost:5000/stop \
-     -H "X-API-Key: your-key"
-   ```
+Note: anyone with access to that browser profile can read the stored key. On shared devices, leave the key empty and use `curl` / API clients instead.
 
 #### Rate Limiting (Recommended)
 
