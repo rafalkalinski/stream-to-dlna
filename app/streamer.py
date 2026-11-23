@@ -42,6 +42,7 @@ class PassthroughStreamer:
 
 class ReuseAddrHTTPServer(ThreadingMixIn, HTTPServer):
     """HTTPServer with SO_REUSEADDR to prevent 'Address already in use' errors."""
+
     allow_reuse_address = True
     daemon_threads = True
 
@@ -54,21 +55,21 @@ class StreamHandler(BaseHTTPRequestHandler):
 
     def _send_stream_headers(self):
         """Send common headers required by DLNA renderers (including Samsung)."""
-        self.send_header('Content-Type', 'audio/mpeg')
-        self.send_header('Connection', 'close')
-        self.send_header('Accept-Ranges', 'none')
+        self.send_header("Content-Type", "audio/mpeg")
+        self.send_header("Connection", "close")
+        self.send_header("Accept-Ranges", "none")
         # DLNA compliance headers — Samsung Q90R and similar devices require these
         # to initiate GET after accepting SetAVTransportURI
-        self.send_header('transferMode.dlna.org', 'Streaming')
+        self.send_header("transferMode.dlna.org", "Streaming")
         self.send_header(
-            'contentFeatures.dlna.org',
-            'DLNA.ORG_PN=MP3;DLNA.ORG_OP=00;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=8D100000000000000000000000000000'
+            "contentFeatures.dlna.org",
+            "DLNA.ORG_PN=MP3;DLNA.ORG_OP=00;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=8D100000000000000000000000000000",
         )
 
     def do_HEAD(self):
         """Handle HEAD request — Samsung and other strict DLNA devices verify the URL
         with HEAD before accepting SetAVTransportURI."""
-        if self.path == '/stream.mp3':
+        if self.path == "/stream.mp3":
             self.send_response(200)
             self._send_stream_headers()
             self.end_headers()
@@ -78,7 +79,7 @@ class StreamHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         """Handle GET request for audio stream."""
-        if self.path == '/stream.mp3':
+        if self.path == "/stream.mp3":
             self.send_response(200)
             self._send_stream_headers()
             self.end_headers()
@@ -107,10 +108,16 @@ class AudioStreamer:
 
     PID_FILE = "/tmp/stream-to-dlna-ffmpeg.pid"
 
-    def __init__(self, stream_url: str, port: int, bitrate: str = "128k",
-                 chunk_size: int = 8192, max_stderr_lines: int = 1000,
-                 protocol_whitelist: str = "http,https,tcp,tls",
-                 on_crash_callback: callable = None):
+    def __init__(
+        self,
+        stream_url: str,
+        port: int,
+        bitrate: str = "128k",
+        chunk_size: int = 8192,
+        max_stderr_lines: int = 1000,
+        protocol_whitelist: str = "http,https,tcp,tls",
+        on_crash_callback: callable = None,
+    ):
         self.stream_url = stream_url
         self.port = port
         self.bitrate = bitrate
@@ -133,7 +140,7 @@ class AudioStreamer:
             return
 
         try:
-            with open(AudioStreamer.PID_FILE, 'r') as f:
+            with open(AudioStreamer.PID_FILE) as f:
                 old_pid = int(f.read().strip())
 
             # Check if process is still running
@@ -143,6 +150,7 @@ class AudioStreamer:
                 os.kill(old_pid, signal.SIGTERM)
                 # Give it time to terminate gracefully
                 import time
+
                 time.sleep(1)
                 # Check if still alive and force kill
                 try:
@@ -161,14 +169,14 @@ class AudioStreamer:
             # Try to remove PID file anyway
             try:
                 os.remove(AudioStreamer.PID_FILE)
-            except:
+            except OSError:
                 pass
 
     @staticmethod
     def _save_pid(pid: int):
         """Save FFmpeg PID to file for tracking."""
         try:
-            with open(AudioStreamer.PID_FILE, 'w') as f:
+            with open(AudioStreamer.PID_FILE, "w") as f:
                 f.write(str(pid))
             logger.debug(f"Saved FFmpeg PID {pid} to {AudioStreamer.PID_FILE}")
         except Exception as e:
@@ -197,24 +205,28 @@ class AudioStreamer:
 
         # Start FFmpeg process with protocol whitelist for security
         ffmpeg_cmd = [
-            'ffmpeg',
-            '-protocol_whitelist', self.protocol_whitelist,
-            '-i', self.stream_url,
-            '-vn',  # No video
-            '-acodec', 'libmp3lame',
-            '-b:a', self.bitrate,
-            '-ar', '44100',
-            '-ac', '2',
-            '-f', 'mp3',
-            '-',  # Output to stdout
+            "ffmpeg",
+            "-protocol_whitelist",
+            self.protocol_whitelist,
+            "-i",
+            self.stream_url,
+            "-vn",  # No video
+            "-acodec",
+            "libmp3lame",
+            "-b:a",
+            self.bitrate,
+            "-ar",
+            "44100",
+            "-ac",
+            "2",
+            "-f",
+            "mp3",
+            "-",  # Output to stdout
         ]
 
         try:
             self.ffmpeg_process = subprocess.Popen(
-                ffmpeg_cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                bufsize=8192
+                ffmpeg_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=8192
             )
 
             # Save PID for tracking
@@ -225,10 +237,9 @@ class AudioStreamer:
             StreamHandler.chunk_size = self.chunk_size
 
             # Start HTTP server in separate thread with address reuse enabled
-            self.http_server = ReuseAddrHTTPServer(('0.0.0.0', self.port), StreamHandler)
+            self.http_server = ReuseAddrHTTPServer(("0.0.0.0", self.port), StreamHandler)
             self.server_thread = threading.Thread(
-                target=self.http_server.serve_forever,
-                daemon=True
+                target=self.http_server.serve_forever, daemon=True
             )
             self.server_thread.start()
 
@@ -236,10 +247,7 @@ class AudioStreamer:
             logger.info(f"Streaming server started on port {self.port}")
 
             # Start FFmpeg error logger thread
-            threading.Thread(
-                target=self._log_ffmpeg_errors,
-                daemon=True
-            ).start()
+            threading.Thread(target=self._log_ffmpeg_errors, daemon=True).start()
 
         except Exception as e:
             logger.error(f"Failed to start streamer: {e}")
@@ -249,9 +257,9 @@ class AudioStreamer:
     def _log_ffmpeg_errors(self):
         """Log FFmpeg stderr output with buffer limit to prevent memory leak."""
         if self.ffmpeg_process and self.ffmpeg_process.stderr:
-            for line in iter(self.ffmpeg_process.stderr.readline, b''):
+            for line in iter(self.ffmpeg_process.stderr.readline, b""):
                 if line:
-                    line_text = line.decode('utf-8', errors='replace').strip()
+                    line_text = line.decode("utf-8", errors="replace").strip()
                     self.stderr_line_count += 1
 
                     # Store last N lines for crash debugging
@@ -262,7 +270,9 @@ class AudioStreamer:
                     if self.stderr_line_count <= self.max_stderr_lines:
                         logger.debug(f"FFmpeg: {line_text}")
                     elif self.stderr_line_count == self.max_stderr_lines + 1:
-                        logger.warning(f"FFmpeg stderr buffer limit ({self.max_stderr_lines} lines) reached, suppressing further output")
+                        logger.warning(
+                            f"FFmpeg stderr buffer limit ({self.max_stderr_lines} lines) reached, suppressing further output"
+                        )
                     # Continue reading to prevent buffer blocking but don't log
 
     def stop(self):
@@ -308,7 +318,9 @@ class AudioStreamer:
         # FFmpeg stopped - cleanup if needed
         if self.running:
             exit_code = self.ffmpeg_process.returncode if self.ffmpeg_process else None
-            logger.warning(f"FFmpeg process ended unexpectedly (exit code: {exit_code}), cleaning up")
+            logger.warning(
+                f"FFmpeg process ended unexpectedly (exit code: {exit_code}), cleaning up"
+            )
 
             # Log last stderr lines for debugging
             if self.last_stderr_lines:
@@ -358,7 +370,7 @@ class AudioStreamer:
                 # Try to connect to the HTTP server
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 sock.settimeout(1)
-                sock.connect(('127.0.0.1', self.port))
+                sock.connect(("127.0.0.1", self.port))
                 sock.close()
                 logger.info("Streaming server is ready")
                 return True

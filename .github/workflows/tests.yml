@@ -34,18 +34,15 @@ jobs:
         pip install -r requirements.txt
         pip install -r requirements-dev.txt
 
-    # Lint/format/security checks are informational for now: the codebase
-    # still has outstanding ruff/black findings. Drop continue-on-error once fixed.
     - name: Lint with ruff
       run: |
         ruff check app/ tests/
-      continue-on-error: true
 
     - name: Check code formatting with black
       run: |
         black --check app/ tests/
-      continue-on-error: true
 
+    # Informational: bandit still reports medium-severity findings to review
     - name: Security check with bandit
       run: |
         bandit -r app/ -f json -o bandit-report.json

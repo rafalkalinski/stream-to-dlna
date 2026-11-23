@@ -1,7 +1,6 @@
 """HTTP client with connection pooling and timeout management."""
 
 import logging
-from typing import Any
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -18,7 +17,7 @@ class HTTPClient:
     performance for multiple HTTP requests.
     """
 
-    _instance: 'HTTPClient | None' = None
+    _instance: "HTTPClient | None" = None
     _session: requests.Session | None = None
 
     def __new__(cls):
@@ -39,15 +38,11 @@ class HTTPClient:
             total=3,
             backoff_factor=0.3,
             status_forcelist=[429, 500, 502, 503, 504],
-            allowed_methods=["HEAD", "GET", "OPTIONS"]
+            allowed_methods=["HEAD", "GET", "OPTIONS"],
         )
 
         # Configure HTTP adapter with connection pooling
-        adapter = HTTPAdapter(
-            pool_connections=10,
-            pool_maxsize=20,
-            max_retries=retry_strategy
-        )
+        adapter = HTTPAdapter(pool_connections=10, pool_maxsize=20, max_retries=retry_strategy)
 
         self._session.mount("http://", adapter)
         self._session.mount("https://", adapter)
@@ -69,19 +64,19 @@ class HTTPClient:
             total=3,
             backoff_factor=0.3,
             status_forcelist=[429, 500, 502, 503, 504],
-            allowed_methods=["HEAD", "GET", "OPTIONS"]
+            allowed_methods=["HEAD", "GET", "OPTIONS"],
         )
 
         adapter = HTTPAdapter(
-            pool_connections=pool_connections,
-            pool_maxsize=pool_maxsize,
-            max_retries=retry_strategy
+            pool_connections=pool_connections, pool_maxsize=pool_maxsize, max_retries=retry_strategy
         )
 
         self._session.mount("http://", adapter)
         self._session.mount("https://", adapter)
 
-        logger.info(f"HTTP client reconfigured: pool_connections={pool_connections}, pool_maxsize={pool_maxsize}")
+        logger.info(
+            f"HTTP client reconfigured: pool_connections={pool_connections}, pool_maxsize={pool_maxsize}"
+        )
 
     def get(self, url: str, timeout: int = 10, **kwargs) -> requests.Response:
         """

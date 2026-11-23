@@ -12,17 +12,30 @@ logger = logging.getLogger(__name__)
 class DLNAClient:
     """Simple DLNA/UPnP AVTransport client."""
 
-    def __init__(self, device_host: str, device_port: int = 55000, protocol: str = "http",
-                 control_url: str | None = None, connection_manager_url: str | None = None):
+    def __init__(
+        self,
+        device_host: str,
+        device_port: int = 55000,
+        protocol: str = "http",
+        control_url: str | None = None,
+        connection_manager_url: str | None = None,
+    ):
         self.device_host = device_host
         self.device_port = device_port
         self.protocol = protocol
-        self.control_url = control_url or f"{protocol}://{device_host}:{device_port}/AVTransport/ctrl"
-        self.connection_manager_url = connection_manager_url or f"{protocol}://{device_host}:{device_port}/ConnectionManager/ctrl"
+        self.control_url = (
+            control_url or f"{protocol}://{device_host}:{device_port}/AVTransport/ctrl"
+        )
+        self.connection_manager_url = (
+            connection_manager_url
+            or f"{protocol}://{device_host}:{device_port}/ConnectionManager/ctrl"
+        )
         self.instance_id = "0"
         self.capabilities: dict[str, Any] | None = None
 
-    def _send_soap_request(self, action: str, arguments: dict = None, timeout: int = 10) -> str | None:
+    def _send_soap_request(
+        self, action: str, arguments: dict = None, timeout: int = 10
+    ) -> str | None:
         """Send SOAP request to DLNA device.
 
         Args:
@@ -33,40 +46,39 @@ class DLNAClient:
         arguments = arguments or {}
 
         # Build SOAP envelope
-        envelope = f'''<?xml version="1.0" encoding="utf-8"?>
+        envelope = f"""<?xml version="1.0" encoding="utf-8"?>
 <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
             s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
     <s:Body>
         <u:{action} xmlns:u="urn:schemas-upnp-org:service:AVTransport:1">
             <InstanceID>{self.instance_id}</InstanceID>
-'''
+"""
 
         for key, value in arguments.items():
             envelope += f"            <{key}>{value}</{key}>\n"
 
-        envelope += f'''        </u:{action}>
+        envelope += f"""        </u:{action}>
     </s:Body>
-</s:Envelope>'''
+</s:Envelope>"""
 
         headers = {
-            'Content-Type': 'text/xml; charset="utf-8"',
-            'SOAPAction': f'"urn:schemas-upnp-org:service:AVTransport:1#{action}"',
-            'Connection': 'close',  # Tell device to close socket after response
+            "Content-Type": 'text/xml; charset="utf-8"',
+            "SOAPAction": f'"urn:schemas-upnp-org:service:AVTransport:1#{action}"',
+            "Connection": "close",  # Tell device to close socket after response
         }
 
         try:
             response = http_client.post(
-                self.control_url,
-                data=envelope.encode('utf-8'),
-                headers=headers,
-                timeout=timeout
+                self.control_url, data=envelope.encode("utf-8"), headers=headers, timeout=timeout
             )
 
             if response.status_code == 200:
                 logger.debug(f"SOAP action {action} succeeded")
                 return response.text
             else:
-                logger.error(f"SOAP action {action} failed: {response.status_code} - {response.text}")
+                logger.error(
+                    f"SOAP action {action} failed: {response.status_code} - {response.text}"
+                )
                 return None
 
         except Exception as e:
@@ -74,35 +86,40 @@ class DLNAClient:
             return None
 
     @staticmethod
-    def _build_didl_metadata(uri: str, mime_type: str = 'audio/mpeg') -> str:
+    def _build_didl_metadata(uri: str, mime_type: str = "audio/mpeg") -> str:
         """Build DIDL-Lite XML metadata required by strict DLNA renderers (e.g. Samsung).
 
         Without this metadata Samsung accepts SetAVTransportURI but never initiates GET.
         """
         # Map MIME type to DLNA profile info
         profile_map = {
-            'audio/mpeg': 'DLNA.ORG_PN=MP3;DLNA.ORG_OP=00;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=8D100000000000000000000000000000',
-            'audio/mp3':  'DLNA.ORG_PN=MP3;DLNA.ORG_OP=00;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=8D100000000000000000000000000000',
-            'audio/flac': 'DLNA.ORG_PN=FLAC;DLNA.ORG_OP=00;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=8D100000000000000000000000000000',
+            "audio/mpeg": "DLNA.ORG_PN=MP3;DLNA.ORG_OP=00;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=8D100000000000000000000000000000",
+            "audio/mp3": "DLNA.ORG_PN=MP3;DLNA.ORG_OP=00;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=8D100000000000000000000000000000",
+            "audio/flac": "DLNA.ORG_PN=FLAC;DLNA.ORG_OP=00;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=8D100000000000000000000000000000",
         }
-        dlna_profile = profile_map.get(mime_type, '*')
-        protocol_info = f'http-get:*:{mime_type}:{dlna_profile}'
+        dlna_profile = profile_map.get(mime_type, "*")
+        protocol_info = f"http-get:*:{mime_type}:{dlna_profile}"
 
-        uri_esc = uri.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
+        uri_esc = (
+            uri.replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace('"', "&quot;")
+        )
 
         return (
             '<DIDL-Lite xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/" '
             'xmlns:dc="http://purl.org/dc/elements/1.1/" '
             'xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/">'
             '<item id="1" parentID="0" restricted="1">'
-            '<dc:title>Radio Stream</dc:title>'
-            '<upnp:class>object.item.audioItem.audioBroadcast</upnp:class>'
+            "<dc:title>Radio Stream</dc:title>"
+            "<upnp:class>object.item.audioItem.audioBroadcast</upnp:class>"
             f'<res protocolInfo="{protocol_info}">{uri_esc}</res>'
-            '</item>'
-            '</DIDL-Lite>'
+            "</item>"
+            "</DIDL-Lite>"
         )
 
-    def set_av_transport_uri(self, uri: str, mime_type: str = 'audio/mpeg') -> bool:
+    def set_av_transport_uri(self, uri: str, mime_type: str = "audio/mpeg") -> bool:
         """Set the URI of the media to play.
 
         Note: Uses 15s timeout as some devices need time to validate the stream URL.
@@ -110,23 +127,26 @@ class DLNAClient:
         logger.info(f"Setting AV Transport URI to {uri}")
 
         # Escape XML entities in URI
-        uri_escaped = uri.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+        uri_escaped = uri.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
         # DIDL-Lite metadata must be XML-escaped when used as a SOAP string value.
         # Inserting raw XML would create nested XML instead of the expected string type.
         didl = self._build_didl_metadata(uri, mime_type)
-        didl_escaped = didl.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
+        didl_escaped = (
+            didl.replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace('"', "&quot;")
+        )
 
-        arguments = {
-            'CurrentURI': uri_escaped,
-            'CurrentURIMetaData': didl_escaped
-        }
+        arguments = {"CurrentURI": uri_escaped, "CurrentURIMetaData": didl_escaped}
 
         # Use 15s timeout for SetAVTransportURI
         # Devices may need time to validate stream URL connectivity
         import time
+
         start_time = time.time()
-        response = self._send_soap_request('SetAVTransportURI', arguments, timeout=15)
+        response = self._send_soap_request("SetAVTransportURI", arguments, timeout=15)
         elapsed = time.time() - start_time
 
         if response:
@@ -140,18 +160,16 @@ class DLNAClient:
         """Start playback."""
         logger.info("Sending Play command")
 
-        arguments = {
-            'Speed': speed
-        }
+        arguments = {"Speed": speed}
 
-        response = self._send_soap_request('Play', arguments)
+        response = self._send_soap_request("Play", arguments)
         return response is not None
 
     def stop(self) -> bool:
         """Stop playback."""
         logger.info("Sending Stop command")
 
-        response = self._send_soap_request('Stop')
+        response = self._send_soap_request("Stop")
         return response is not None
 
     def stop_if_playing(self) -> bool:
@@ -164,11 +182,11 @@ class DLNAClient:
             logger.debug("Could not get transport info, skipping Stop command")
             return True  # Skip stop to avoid unnecessary errors
 
-        state = info.get('state', 'UNKNOWN')
+        state = info.get("state", "UNKNOWN")
 
         # Only send stop if device is in a state that can be stopped
         # Note: TRANSITIONING is excluded as device may reject Stop during state transitions
-        if state in ['PLAYING', 'PAUSED_PLAYBACK']:
+        if state in ["PLAYING", "PAUSED_PLAYBACK"]:
             logger.info(f"Device is {state}, sending Stop command")
             return self.stop()
         else:
@@ -179,7 +197,7 @@ class DLNAClient:
         """Pause playback."""
         logger.info("Sending Pause command")
 
-        response = self._send_soap_request('Pause')
+        response = self._send_soap_request("Pause")
         return response is not None
 
     def get_transport_info(self, retries: int = 2) -> dict | None:
@@ -196,25 +214,26 @@ class DLNAClient:
 
         for attempt in range(retries + 1):
             try:
-                response = self._send_soap_request('GetTransportInfo')
+                response = self._send_soap_request("GetTransportInfo")
 
                 if not response:
                     last_error = "No response from device"
                     if attempt < retries:
                         logger.debug(f"GetTransportInfo attempt {attempt + 1} failed, retrying...")
                         import time
+
                         time.sleep(0.3)
                         continue
                     return None
 
                 root = ET.fromstring(response)
 
-                state_elem = root.find('.//CurrentTransportState')
-                status_elem = root.find('.//CurrentTransportStatus')
+                state_elem = root.find(".//CurrentTransportState")
+                status_elem = root.find(".//CurrentTransportStatus")
 
                 result = {
-                    'state': state_elem.text if state_elem is not None else 'UNKNOWN',
-                    'status': status_elem.text if status_elem is not None else 'UNKNOWN'
+                    "state": state_elem.text if state_elem is not None else "UNKNOWN",
+                    "status": status_elem.text if status_elem is not None else "UNKNOWN",
                 }
 
                 # Success - return immediately
@@ -225,22 +244,28 @@ class DLNAClient:
             except ET.ParseError as e:
                 last_error = f"Parse error: {e}"
                 if attempt < retries:
-                    logger.debug(f"GetTransportInfo parse error on attempt {attempt + 1}, retrying...")
+                    logger.debug(
+                        f"GetTransportInfo parse error on attempt {attempt + 1}, retrying..."
+                    )
                     import time
+
                     time.sleep(0.3)
                     continue
             except Exception as e:
                 last_error = str(e)
                 if attempt < retries:
-                    logger.debug(f"GetTransportInfo error on attempt {attempt + 1}: {e}, retrying...")
+                    logger.debug(
+                        f"GetTransportInfo error on attempt {attempt + 1}: {e}, retrying..."
+                    )
                     import time
+
                     time.sleep(0.3)
                     continue
 
         logger.debug(f"GetTransportInfo failed after {retries + 1} attempts: {last_error}")
         return None
 
-    def play_url(self, url: str, mime_type: str = 'audio/mpeg', max_retries: int = 3) -> bool:
+    def play_url(self, url: str, mime_type: str = "audio/mpeg", max_retries: int = 3) -> bool:
         """
         Set URI and start playback with retry logic.
 
@@ -257,6 +282,7 @@ class DLNAClient:
         # Wait for device to process URI before sending Play command
         # Some devices (e.g., Panasonic PMX9) need time to prepare stream
         import time
+
         time.sleep(1.5)
 
         # Retry Play command - device may need time to buffer stream
@@ -279,32 +305,32 @@ class DLNAClient:
         """
         logger.debug(f"Getting protocol info from {self.connection_manager_url}")
 
-        envelope = '''<?xml version="1.0" encoding="utf-8"?>
+        envelope = """<?xml version="1.0" encoding="utf-8"?>
 <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
             s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
     <s:Body>
         <u:GetProtocolInfo xmlns:u="urn:schemas-upnp-org:service:ConnectionManager:1">
         </u:GetProtocolInfo>
     </s:Body>
-</s:Envelope>'''
+</s:Envelope>"""
 
         headers = {
-            'Content-Type': 'text/xml; charset="utf-8"',
-            'SOAPAction': '"urn:schemas-upnp-org:service:ConnectionManager:1#GetProtocolInfo"',
+            "Content-Type": 'text/xml; charset="utf-8"',
+            "SOAPAction": '"urn:schemas-upnp-org:service:ConnectionManager:1#GetProtocolInfo"',
         }
 
         try:
             response = http_client.post(
                 self.connection_manager_url,
-                data=envelope.encode('utf-8'),
+                data=envelope.encode("utf-8"),
                 headers=headers,
-                timeout=10
+                timeout=10,
             )
 
             if response.status_code == 200:
                 # Parse response to extract Sink protocols (what device can play)
                 root = ET.fromstring(response.text)
-                sink_elem = root.find('.//{*}Sink')
+                sink_elem = root.find(".//{*}Sink")
                 if sink_elem is not None and sink_elem.text:
                     logger.debug(f"Device supports protocols: {sink_elem.text[:200]}...")
                     return sink_elem.text
@@ -312,7 +338,9 @@ class DLNAClient:
                     logger.warning("Could not find Sink element in GetProtocolInfo response")
                     return None
             else:
-                logger.warning(f"GetProtocolInfo failed: {response.status_code} - {response.text[:200]}")
+                logger.warning(
+                    f"GetProtocolInfo failed: {response.status_code} - {response.text[:200]}"
+                )
                 return None
 
         except Exception as e:
@@ -329,12 +357,12 @@ class DLNAClient:
         protocol_info = self.get_protocol_info()
 
         capabilities = {
-            'supports_mp3': False,
-            'supports_aac': False,
-            'supports_flac': False,
-            'supports_wav': False,
-            'supports_ogg': False,
-            'raw_protocol_info': protocol_info
+            "supports_mp3": False,
+            "supports_aac": False,
+            "supports_flac": False,
+            "supports_wav": False,
+            "supports_ogg": False,
+            "raw_protocol_info": protocol_info,
         }
 
         if protocol_info:
@@ -344,28 +372,34 @@ class DLNAClient:
             # Parse protocol info - format is comma-separated list of:
             # protocol:network:contentFormat:additionalInfo
             # e.g., http-get:*:audio/mpeg:*
-            protocols = protocol_info.split(',')
+            protocols = protocol_info.split(",")
 
             for proto in protocols:
                 proto_lower = proto.lower()
-                if 'audio/mpeg' in proto_lower or 'audio/mp3' in proto_lower:
-                    capabilities['supports_mp3'] = True
+                if "audio/mpeg" in proto_lower or "audio/mp3" in proto_lower:
+                    capabilities["supports_mp3"] = True
                     logger.debug(f"Found MP3 support: {proto.strip()}")
-                if 'audio/aac' in proto_lower or 'audio/x-aac' in proto_lower or 'audio/mp4' in proto_lower:
-                    capabilities['supports_aac'] = True
+                if (
+                    "audio/aac" in proto_lower
+                    or "audio/x-aac" in proto_lower
+                    or "audio/mp4" in proto_lower
+                ):
+                    capabilities["supports_aac"] = True
                     logger.debug(f"Found AAC support: {proto.strip()}")
-                if 'audio/flac' in proto_lower or 'audio/x-flac' in proto_lower:
-                    capabilities['supports_flac'] = True
+                if "audio/flac" in proto_lower or "audio/x-flac" in proto_lower:
+                    capabilities["supports_flac"] = True
                     logger.debug(f"Found FLAC support: {proto.strip()}")
-                if 'audio/wav' in proto_lower or 'audio/x-wav' in proto_lower:
-                    capabilities['supports_wav'] = True
-                if 'audio/ogg' in proto_lower or 'audio/x-ogg' in proto_lower:
-                    capabilities['supports_ogg'] = True
+                if "audio/wav" in proto_lower or "audio/x-wav" in proto_lower:
+                    capabilities["supports_wav"] = True
+                if "audio/ogg" in proto_lower or "audio/x-ogg" in proto_lower:
+                    capabilities["supports_ogg"] = True
 
         self.capabilities = capabilities
-        logger.info(f"Device capabilities: MP3={capabilities['supports_mp3']}, "
-                   f"AAC={capabilities['supports_aac']}, "
-                   f"FLAC={capabilities['supports_flac']}")
+        logger.info(
+            f"Device capabilities: MP3={capabilities['supports_mp3']}, "
+            f"AAC={capabilities['supports_aac']}, "
+            f"FLAC={capabilities['supports_flac']}"
+        )
 
         return capabilities
 
@@ -389,20 +423,20 @@ class DLNAClient:
         mime_lower = mime_type.lower()
 
         # MP3 detection
-        if 'mpeg' in mime_lower or 'mp3' in mime_lower:
-            return self.capabilities.get('supports_mp3', False)
+        if "mpeg" in mime_lower or "mp3" in mime_lower:
+            return self.capabilities.get("supports_mp3", False)
 
         # AAC detection (multiple formats)
         # Common AAC MIME types: audio/aac, audio/aacp, audio/mp4, audio/vnd.dlna.adts, audio/x-hx-aac-adts
-        elif any(fmt in mime_lower for fmt in ['aac', 'mp4', 'adts', 'm4a']):
-            return self.capabilities.get('supports_aac', False)
+        elif any(fmt in mime_lower for fmt in ["aac", "mp4", "adts", "m4a"]):
+            return self.capabilities.get("supports_aac", False)
 
         # Other formats
-        elif 'flac' in mime_lower:
-            return self.capabilities.get('supports_flac', False)
-        elif 'wav' in mime_lower:
-            return self.capabilities.get('supports_wav', False)
-        elif 'ogg' in mime_lower:
-            return self.capabilities.get('supports_ogg', False)
+        elif "flac" in mime_lower:
+            return self.capabilities.get("supports_flac", False)
+        elif "wav" in mime_lower:
+            return self.capabilities.get("supports_wav", False)
+        elif "ogg" in mime_lower:
+            return self.capabilities.get("supports_ogg", False)
 
         return False

@@ -27,20 +27,24 @@ class DeviceManager:
         """Load device state from JSON file with process-level locking."""
         try:
             if os.path.exists(self.state_file):
-                with open(self.state_file, 'r') as f:
+                with open(self.state_file) as f:
                     # Acquire shared lock for reading (multiple readers allowed)
                     fcntl.flock(f.fileno(), fcntl.LOCK_SH)
                     try:
                         data = json.load(f)
-                        self.current_device = data.get('current_device')
-                        self.cached_devices = data.get('cached_devices', [])
-                        self.last_scan_time = data.get('last_scan_time')
+                        self.current_device = data.get("current_device")
+                        self.cached_devices = data.get("cached_devices", [])
+                        self.last_scan_time = data.get("last_scan_time")
 
                         if self.current_device:
-                            logger.debug(f"Loaded saved device: {self.current_device.get('friendly_name', 'Unknown')}")
+                            logger.debug(
+                                f"Loaded saved device: {self.current_device.get('friendly_name', 'Unknown')}"
+                            )
 
                         if self.cached_devices:
-                            logger.debug(f"Loaded {len(self.cached_devices)} cached devices from state file")
+                            logger.debug(
+                                f"Loaded {len(self.cached_devices)} cached devices from state file"
+                            )
                         else:
                             logger.debug("No cached devices in state file")
                     finally:
@@ -64,14 +68,14 @@ class DeviceManager:
                 logger.info(f"Created state directory: {state_dir}")
 
             data = {
-                'current_device': self.current_device,
-                'cached_devices': self.cached_devices,
-                'last_scan_time': self.last_scan_time
+                "current_device": self.current_device,
+                "cached_devices": self.cached_devices,
+                "last_scan_time": self.last_scan_time,
             }
 
             # Write to temporary file first, then rename (atomic operation)
             temp_file = f"{self.state_file}.tmp"
-            with open(temp_file, 'w') as f:
+            with open(temp_file, "w") as f:
                 # Acquire exclusive lock for writing (blocks all other access)
                 fcntl.flock(f.fileno(), fcntl.LOCK_EX)
                 try:
@@ -84,7 +88,9 @@ class DeviceManager:
             # Atomic rename
             os.replace(temp_file, self.state_file)
 
-            logger.debug(f"Device state saved to {self.state_file} ({len(self.cached_devices)} cached devices)")
+            logger.debug(
+                f"Device state saved to {self.state_file} ({len(self.cached_devices)} cached devices)"
+            )
         except Exception as e:
             logger.error(f"Failed to save state file {self.state_file}: {e}", exc_info=True)
             # Don't re-raise - allow operation to continue with in-memory state only
@@ -138,7 +144,9 @@ class DeviceManager:
             self.last_scan_time = time.time()
             try:
                 self._save_state()
-                logger.info(f"Device cache updated with {len(devices)} devices, saved to {self.state_file}")
+                logger.info(
+                    f"Device cache updated with {len(devices)} devices, saved to {self.state_file}"
+                )
             except Exception as e:
                 logger.error(f"Failed to persist device cache to disk: {e}")
                 # Don't re-raise - cache is still updated in memory
@@ -183,6 +191,6 @@ class DeviceManager:
             # Always reload from disk to support multi-worker environments (Gunicorn)
             self._load_state()
             for device in self.cached_devices:
-                if ip and device.get('ip') == ip:
+                if ip and device.get("ip") == ip:
                     return device.copy()
             return None

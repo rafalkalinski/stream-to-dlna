@@ -70,7 +70,7 @@ pytest --cov=app --cov-fail-under=80
 
 Also available as Makefile targets: `make lint`, `make format-check`, `make type-check`, `make security`, `make all-checks`.
 
-> **Note:** the codebase still has outstanding ruff/black findings, so these checks are informational in CI (`continue-on-error`) for now.
+ruff and black are enforced in CI — run `make lint format-check` before pushing. bandit is informational for now.
 
 ```bash
 # Linting with ruff
@@ -140,7 +140,7 @@ def test_with_fixtures(device_manager, sample_device):
 
 Tests run automatically on pushes and pull requests to `main` (`.github/workflows/tests.yml`):
 1. Tests on Python 3.11, 3.12, 3.14
-2. Linting (ruff), formatting (black), security scan (bandit) — informational for now
+2. Linting (ruff) and formatting (black) — must pass; security scan (bandit) — informational
 3. Unit tests with coverage
 4. Integration tests
 5. Pull requests only: builds the Docker image and smoke-tests `/health`
