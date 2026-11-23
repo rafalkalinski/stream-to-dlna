@@ -141,11 +141,12 @@ When `api_auth_enabled: true`:
 
 Enable rate limiting to prevent API abuse:
 
-**Step 1:** Enable Flask-Limiter in `requirements.txt` (it's commented out by default), then reinstall:
+**Step 1:** Enable Flask-Limiter in `requirements.txt` (it's commented out by default) and rebuild. The official Docker image does **not** include it — you need to build your own image:
 ```bash
 # In requirements.txt, uncomment: Flask-Limiter==3.5.0
-pip install -r requirements.txt
+docker build -t stream-to-dlna:custom .   # or: pip install -r requirements.txt for local runs
 ```
+Without Flask-Limiter installed, `rate_limit_enabled: true` is ignored and a warning is logged.
 
 **Step 2:** Enable in `config.yaml`
 ```yaml
@@ -169,9 +170,8 @@ security:
 #### API Key Management Best Practices
 
 **Storage:**
-- Store in environment variables
-- Use secrets management (Vault, AWS Secrets Manager)
-- Restrict file permissions (`chmod 600 config.yaml`)
+- The API key lives in `config.yaml` (environment variable substitution is **not** supported)
+- Restrict file permissions (`chmod 600 config.yaml`) and mount it read-only (`:ro`)
 - Never commit to git
 - Never log or expose in error messages
 
@@ -179,23 +179,6 @@ security:
 - Rotate API keys every 90 days
 - Rotate immediately if compromised
 - Use different keys for dev/staging/production
-
-**Example with environment variable:**
-```bash
-# .env file (not committed to git)
-STREAM_TO_DLNA_API_KEY="a1b2c3d4e5f6789..."
-
-# docker-compose.yaml
-environment:
-  - API_KEY=${STREAM_TO_DLNA_API_KEY}
-```
-
-```yaml
-# config.yaml
-security:
-  api_auth_enabled: true
-  api_key: ${API_KEY}  # Read from environment
-```
 
 ## Deployment Security Considerations
 
@@ -208,7 +191,7 @@ security:
 **Mitigations:**
 1. Run container on a trusted network only
 2. Use firewall rules to restrict container access
-3. Consider using `macvlan` network for bridge mode networks (see README.md)
+3. Consider a `macvlan` network instead: the container gets its own LAN IP (SSDP multicast still works) and does not share the host's network stack
 
 **Example iptables rules:**
 ```bash
@@ -233,16 +216,7 @@ chmod 700 ./data
 
 ### Medium: Gunicorn Configuration
 
-**Recommended Configuration:**
-- **Workers:** 1 (prevents state inconsistency)
-- **Threads:** 4+ (handles concurrent requests)
-
-```yaml
-# config.yaml
-performance:
-  gunicorn_workers: 1
-  gunicorn_threads: 4
-```
+Gunicorn runs with **1 worker and 4 threads**, set in the Dockerfile `CMD`. Do not increase the worker count in a custom image — the streaming server and playback state are in-process and would be split across workers.
 
 ### Medium: Stream URL Validation
 
@@ -264,14 +238,13 @@ if hostname.startswith('192.168.'):
 - [ ] Enable API authentication in production (`api_auth_enabled: true`)
 - [ ] Enable rate limiting (`rate_limit_enabled: true`)
 - [ ] Use read-only config volume mount
-- [ ] Use named Docker volume for state file (not host path)
+- [ ] Restrict permissions on the data directory (`chmod 700 ./data`)
 - [ ] Set strong API key (minimum 32 characters, random)
 - [ ] Configure firewall rules for host network mode
-- [ ] Set Gunicorn workers to 1
 - [ ] Review and adjust timeout values for your network
 - [ ] Use HTTPS reverse proxy (nginx, Traefik) if exposing to WAN
 - [ ] Enable Docker logging with rotation (see docker-compose.yaml)
-- [ ] Regularly update dependencies (`pip install -U -r requirements.txt`)
+- [ ] Pull the latest image regularly (`latest` is rebuilt monthly with security patches)
 
 ## Reverse Proxy Configuration
 
@@ -306,7 +279,7 @@ server {
 
 **DO NOT** create public GitHub issues for security vulnerabilities.
 
-Contact: [Your security contact email/method]
+Report privately via GitHub: **Security** tab → **Report a vulnerability** on https://github.com/rafalkalinski/stream-to-dlna
 
 ## Security Audit Log
 

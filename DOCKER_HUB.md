@@ -35,6 +35,10 @@ docker run -d \
 
 Or use docker-compose.yaml from the repository.
 
+The container must be on the same L2 network as your DLNA devices (SSDP discovery uses multicast) — use `--network host` or a `macvlan` network.
+
+**Image updates:** `latest` is built on every push to `main` and rebuilt monthly from a fresh base image to pick up security patches. Pull regularly.
+
 ## Configuration
 
 Create `config.yaml`:

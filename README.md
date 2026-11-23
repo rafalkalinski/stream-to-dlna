@@ -8,7 +8,7 @@
 
 Stream internet radio to DLNA devices with automatic format detection and smart transcoding.
 
-**Latest:** v0.5 introduces auto-versioning from git tags — version is baked into the Docker image at build time. See [CHANGELOG](CHANGELOG.md) for details.
+**Latest:** v0.5 — mobile-first GUI and DLNA compatibility fixes for strict renderers (Samsung). See [CHANGELOG](CHANGELOG.md) for details.
 
 ## Features
 
@@ -37,7 +37,7 @@ Stream internet radio to DLNA devices with automatic format detection and smart 
 - FFmpeg process tracking and orphan cleanup
 - Configurable timeouts for all network operations
 - Stderr buffer limiting to prevent memory leaks
-- Single-worker architecture for consistent state management
+- Single-worker architecture for consistent state management (fixed in the Dockerfile)
 - DLNA compliance headers (`transferMode`, `contentFeatures`) for strict renderers
 - DIDL-Lite metadata in `SetAVTransportURI` for Samsung and other picky devices
 - HEAD request handler on streaming server (required by Samsung HW-Q90R)
@@ -47,35 +47,55 @@ Stream internet radio to DLNA devices with automatic format detection and smart 
 - SSRF protection (blocks localhost, AWS metadata, IPv6 loopback)
 - FFmpeg protocol whitelist (http,https,tcp,tls)
 - Optional API key authentication
-- Optional rate limiting (Flask-Limiter)
+- Optional rate limiting (Flask-Limiter, requires a custom image — see below)
 - See [SECURITY.md](SECURITY.md) for full security documentation
 
 ## Quick Start
 
-### Production (Docker)
+### Production (prebuilt image from Docker Hub)
+
+```bash
+mkdir stream-to-dlna && cd stream-to-dlna
+curl -o config.yaml https://raw.githubusercontent.com/rafalkalinski/stream-to-dlna/main/config.example.yaml
+# Edit config.yaml with your settings
+
+docker run -d \
+  --name stream-to-dlna \
+  --network host \
+  --restart unless-stopped \
+  -v $(pwd)/config.yaml:/app/config.yaml:ro \
+  -v $(pwd)/data:/data \
+  erkalina/stream-to-dlna:latest
+```
+
+The container needs to be on the same L2 network as your DLNA devices (SSDP discovery uses multicast). Use `--network host` or a `macvlan` network with a dedicated LAN IP.
+
+#### Image updates
+
+`erkalina/stream-to-dlna:latest` is built by GitHub Actions on every push to `main` and **rebuilt monthly** from a fresh base image to pick up Debian security patches. Version tags (`v0.5`, ...) are published as separate image tags. Pull the image regularly to stay patched.
+
+### Build from source
 
 ```bash
 git clone https://github.com/rafalkalinski/stream-to-dlna.git
 cd stream-to-dlna
+cp config.example.yaml config.yaml   # edit as needed
 
-# Create your config from example
-cp config.example.yaml config.yaml
-# Edit config.yaml with your settings
+# Quick: build locally with version from git tags and smoke-test /health
+make docker-build
+make docker-test
 
-# Create deployment script from template
-cp deploy.sh.example deploy.sh
-chmod +x deploy.sh
-
-# Build and start
-./deploy.sh
-docker compose up -d
+# Or run with the bundled compose file (host networking, ./data volume)
+docker compose up -d --build
 ```
 
-The `deploy.sh` script automatically:
-- Pulls latest changes from git
-- Builds Docker image with BuildKit (faster builds with layer caching)
+For a repeatable build-and-deploy workflow, copy `deploy.sh.example` to `deploy.sh` and create your own `docker-compose.deploy.yaml` (volume paths, network). Then:
 
-**Performance:** First build ~2 minutes, rebuilds ~10-20 seconds (thanks to BuildKit cache)
+```bash
+./deploy.sh -b      # git pull + build image (version from git tags)
+./deploy.sh -d      # replace the running container
+./deploy.sh -b -d   # both
+```
 
 ### Logging
 
@@ -166,8 +186,6 @@ security:
 
 # Performance settings (optional, defaults shown)
 performance:
-  gunicorn_workers: 1    # Recommended: 1 for consistent state
-  gunicorn_threads: 4
   connection_pool_size: 10
   connection_pool_maxsize: 20
 
@@ -178,7 +196,9 @@ ffmpeg:
   protocol_whitelist: "http,https,tcp,tls"
 ```
 
-Note: Device configuration is done via API (no manual IP configuration needed).
+Note: Devices are discovered automatically and selected via the GUI/API; `dlna.default_device_ip` is optional.
+
+Gunicorn always runs with 1 worker and 4 threads (set in the Dockerfile). A single worker is required — the streaming server and playback state live in-process.
 
 ### Security Configuration
 
@@ -227,10 +247,7 @@ curl -X POST http://localhost:5000/play \
 
 **To enable rate limiting:**
 
-1. Install Flask-Limiter:
-```bash
-pip install Flask-Limiter==3.5.0
-```
+1. Install Flask-Limiter. It is **not included** in the official Docker image — uncomment `Flask-Limiter` in `requirements.txt` and build your own image (or `pip install Flask-Limiter` for a local install). Without it, the setting is ignored with a warning in the logs.
 
 2. Enable in config:
 ```yaml
@@ -365,15 +382,24 @@ Only MediaRenderer devices (with AVTransport service) are discovered. MediaServe
 ```
 stream-to-dlna/
 ├── app/
-│   ├── main.py           # Flask API
-│   ├── config.py         # Configuration
-│   ├── dlna_client.py    # DLNA/UPnP client
-│   ├── streamer.py       # FFmpeg transcoding
-│   ├── discovery.py      # SSDP discovery
-│   └── device_manager.py # Device state management
-├── config.yaml
+│   ├── main.py            # Flask API, playback orchestration, input validation
+│   ├── config.py          # Configuration loader
+│   ├── app_context.py     # Shared application state
+│   ├── device_manager.py  # Device selection, cache and state file
+│   ├── discovery.py       # SSDP discovery
+│   ├── dlna_client.py     # DLNA/UPnP client (AVTransport, GetProtocolInfo)
+│   ├── streamer.py        # FFmpeg transcoding + internal HTTP streaming server
+│   ├── stream_cache.py    # Stream format detection cache
+│   ├── http_client.py     # Pooled HTTP client
+│   ├── security.py        # API key auth, rate limiting
+│   ├── templates/dev.html # Web console
+│   └── static/
+├── tests/                 # pytest suite (see TESTING.md)
+├── config.example.yaml
 ├── Dockerfile
-└── docker-compose.yaml
+├── docker-compose.yaml    # Build + run locally (host network)
+├── deploy.sh.example      # Template for your own build/deploy script
+└── Makefile               # Dev shortcuts: make help
 ```
 
 ### Tested Devices

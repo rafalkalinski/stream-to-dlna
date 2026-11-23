@@ -23,7 +23,7 @@ COPY app/ ./app/
 # Copy example config as default (will be overridden by volume mount)
 COPY config.example.yaml ./config.yaml
 
-# Version injected at build time by deploy.sh (MAJOR.MINOR from VERSION file + git commit count as patch)
+# Version injected at build time by CI / deploy.sh (MAJOR.MINOR from latest vX.Y git tag + commits since as patch)
 ARG APP_VERSION=0.0.0
 ENV APP_VERSION=${APP_VERSION}
 
@@ -31,6 +31,6 @@ ENV APP_VERSION=${APP_VERSION}
 EXPOSE 5000 8080
 
 # Run the application with gunicorn
-# CRITICAL: --workers MUST be 1 to prevent race conditions with state file
-# See config.example.yaml performance.gunicorn_workers for details
+# CRITICAL: --workers MUST be 1 - the streaming server and playback state live
+# in-process and must not be split across workers
 CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "4", "--timeout", "120", "app.main:app"]

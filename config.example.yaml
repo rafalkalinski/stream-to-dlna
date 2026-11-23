@@ -32,11 +32,6 @@ streaming:
   # external_url: "http://radio.yourdomain.com"
   # external_url: "https://radio.yourdomain.com"
 
-# Advanced DLNA settings (optional, use defaults if not specified)
-# dlna_advanced:
-#   port: 8080         # DLNA control port (default: 8080)
-#   protocol: "http"   # Protocol: http or https (default: http)
-
 # Network timeouts (in seconds)
 timeouts:
   http_request: 10        # HTTP requests timeout
@@ -57,7 +52,8 @@ security:
   api_auth_enabled: false
   # api_key: "your-secret-api-key-here"  # Generate with: openssl rand -hex 32
 
-  # Rate Limiting (requires: pip install Flask-Limiter==3.5.0)
+  # Rate Limiting (requires Flask-Limiter, which is NOT included in the
+  # official Docker image - uncomment it in requirements.txt and build your own)
   # Default: false (NO LIMITS - can be abused)
   # Set to true to limit request rate on ALL endpoints
   rate_limit_enabled: false
@@ -71,15 +67,10 @@ security:
 
 # Performance settings
 # ADVANCED: Do not modify unless you understand the implications
+# Note: Gunicorn runs with 1 worker / 4 threads (set in the Dockerfile CMD).
+# A single worker is required - the in-process streaming server and state
+# must not be shared between processes.
 performance:
-  # Gunicorn workers - KEEP AT 1 to prevent race conditions with state file
-  # Changing this value may cause data corruption and playback issues
-  gunicorn_workers: 1
-
-  # Gunicorn threads - increase only if you have many concurrent API requests
-  # Most home users should keep the default value
-  gunicorn_threads: 4
-
   # HTTP connection pool - ADVANCED: Only modify if you understand connection pooling
   # These values affect outgoing HTTP connections to DLNA devices and streams
   connection_pool_size: 10
@@ -104,7 +95,7 @@ ffmpeg:
 # Storage settings
 storage:
   # Data directory for persistent storage (cache, state)
-  # Docker: Mount this as volume in docker-compose.yml
+  # Docker: Mount this as volume in docker-compose.yaml
   # Local: Use relative path like "./data" or absolute path
   data_dir: "/data"
 
